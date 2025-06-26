@@ -15,7 +15,7 @@ protected:
 
 	EntityType type;
 
-	bool isAlive;
+	bool isAlive = true;
 
 public:
 	Entity(EntityType t, bool isAlive);

@@ -1,7 +1,7 @@
 #include "Entity.h"
 #include <iostream>
 
-Entity::Entity(EntityType t, bool isAlive) 
+Entity::Entity(EntityType t, bool isAlive)
 {
 	isAlive = true;
 	type = t;

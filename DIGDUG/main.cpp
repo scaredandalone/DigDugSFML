@@ -2,23 +2,25 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include "Player.h"
+#include "Map.h"
 
 int main()
 {
     // - - - - - - - - - - - - Initialise - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     sf::ContextSettings settings;
     // settings.antiAliasingLevel = 8;
-    sf::RenderWindow window(sf::VideoMode({ 244,288 }), "DIG DUG", sf::Style::Default, sf::State::Windowed, settings);
+    sf::RenderWindow window(sf::VideoMode({ 244,288 }), "DIG DUG", sf::Style::Resize, sf::State::Windowed, settings);
     // - - - - - - - - - - - - Initialise - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     sf::Clock clock;
 
-
-    Player player;
+    Map map;
+    Player player(&map);
+    map.loadFromFile("Assets/Map/test.rmap");
     player.Initialise();
 
     // - - - - - - - - - - - - Load - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     player.Load();
-
+    map.printInfo();
 
 
 
@@ -45,7 +47,9 @@ int main()
 
         // - - - - - - - - - - - - Draw - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
         window.clear(sf::Color::Black);
+        map.draw(window);
         player.Draw(window);
+
         window.display();
 
 
