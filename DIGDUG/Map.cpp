@@ -37,10 +37,10 @@ bool Map::loadFromFile(const std::string& filename) {
         }
 
         for (int col = 0; col < TILES_X && col < cleanLine.length(); col++) {
-            tileData[row][col] = cleanLine[col] - '0'; // Convert char to int
+            tileData[row][col] = cleanLine[col] - '0';
         }
 
-        // remaining columns are 0 if line is shorter
+        // if line isnt comlpet
         for (int col = cleanLine.length(); col < TILES_X; col++) {
             tileData[row][col] = 0;
         }
@@ -74,7 +74,8 @@ void Map::buildTiles() {
 
             sf::RectangleShape tile;
             tile.setSize(sf::Vector2f(TILE_SIZE, TILE_SIZE));
-            tile.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
+            tile.setPosition(sf::Vector2f(col * TILE_SIZE + TILE_SIZE / 2.0f, row * TILE_SIZE + TILE_SIZE / 2.0f));
+            tile.setOrigin(sf::Vector2f(tile.getSize().x / 2.0f, tile.getSize().y / 2.0f));
             tile.setFillColor(getTileColor(tileType));
 
             tiles.push_back(tile);

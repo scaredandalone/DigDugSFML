@@ -1,7 +1,10 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include "Entity.h"
 #include "Map.h"
+#include "Animation.h"
+
 
 class Player : public Entity {
 private:
@@ -17,12 +20,15 @@ private:
     sf::Texture texture;
     sf::Vector2i size;
 
+    sf::Music movementMusic;
     sf::Vector2f targetPosition;
     bool isMoving;
     const int TILE_SIZE = 16;
 
     bool canMoveTo(sf::Vector2f position);
     void createTunnel(sf::Vector2f position);
+
+    std::unique_ptr<Animation> animation;
 
 public:
     Player(Map* gameMap);
