@@ -3,6 +3,8 @@
 #include <iostream>
 #include "Player.h"
 #include "Map.h"
+#include "Pooka.h"
+#include "EnemyManager.h"
 
 int main()
 {
@@ -14,12 +16,17 @@ int main()
     sf::Clock clock;
 
     Map map;
+    EnemyManager enemyManager(&map, 10);
     Player player(&map);
+    player.SetEnemyManager(&enemyManager);
+    
     map.loadFromFile("Assets/Map/test.rmap");
     player.Initialise();
-
+    enemyManager.Initialise();
+ 
     // - - - - - - - - - - - - Load - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     player.Load();
+    enemyManager.SpawnEnemy(EnemyType::POOKA, sf::Vector2f(122, 144));
     map.printInfo();
 
 
@@ -43,12 +50,14 @@ int main()
         // - - - - - - - - - - - - Update - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
         
         player.Update(deltaTime);
+        enemyManager.Update(deltaTime, player.getPlayerPosition());
 
 
         // - - - - - - - - - - - - Draw - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
         window.clear(sf::Color::Black);
         map.draw(window);
         player.Draw(window);
+        enemyManager.Draw(window);
 
         window.display();
 

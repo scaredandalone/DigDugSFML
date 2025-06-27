@@ -2,7 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 
-enum class EntityType {PLAYER};
+enum class EntityType {PLAYER, POOKA};
 class Entity
 {
 protected:
@@ -20,13 +20,19 @@ protected:
 public:
 	Entity(EntityType t, bool isAlive);
 	virtual ~Entity();
-	virtual void Update(float deltaTime);
+	virtual void Update(float deltaTime, sf::Vector2f playerPosition);
 	virtual void Draw(sf::RenderWindow& window);
 	virtual void handleCollision(std::shared_ptr<Entity> other);
 
 	EntityType getType() const { return type; }
 	bool isActive() const { return isAlive; }
+	sf::RectangleShape getHitbox() const { return hitbox; }
 
+	// entity damage 
+	virtual void AttachHarpoon();
+	virtual void DetachHarpoon();
+	virtual void Inflate();
+	virtual bool isHarpoonAttached() const;
 
 };
 

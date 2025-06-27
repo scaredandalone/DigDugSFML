@@ -12,12 +12,22 @@ Entity::~Entity()
 	std::cout << "Entity id: " << static_cast<int>(type) << " has been destroyed..." << '\n';
 }
 
-void Entity::Update(float deltaTime)
+void Entity::Update(float deltaTime, sf::Vector2f playerPosition)
 {
 }
 
 void Entity::handleCollision(std::shared_ptr<Entity> other)
 {
+}
+
+void Entity::AttachHarpoon() {
+
+}
+void Entity::DetachHarpoon() {
+
+}
+void Entity::Inflate() {
+
 }
 
 void Entity::Draw(sf::RenderWindow& window)
