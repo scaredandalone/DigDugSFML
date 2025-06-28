@@ -35,6 +35,7 @@ private:
     // animation
     std::unique_ptr<Animation> animation;
 
+
     // shooting enemy and harpoonn
     sf::SoundBuffer buffer;
     std::optional<sf::Sound> harpoonSFX;

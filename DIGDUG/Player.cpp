@@ -24,7 +24,7 @@ void Player::Initialise()
 
 void Player::Load()
 {
-    if (!texture.loadFromFile("Assets/Sprites/Player/spritesheet.png")) {
+    if (!texture.loadFromFile("Assets/Sprites/Player/spritesheet1.png")) {
         std::cout << "failed to load player sprite" << '\n';
     }
 
@@ -64,14 +64,13 @@ void Player::Load()
     hitbox.setOrigin(sf::Vector2f(size.x / 2.0f, size.y / 2.0f));
 
     std::cout << "player loaded successfully" << '\n';
-    animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 1), 0.25f, size.x, size.y);
+    animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y);
 }
 
 void Player::Update(float deltaTime) {
     if (health > 0) {
         sf::Vector2f currentPosition = sprite.getPosition();
         bool wasMoving = isMoving;
-        int animRow = 0;
 
         if (isImmobilized) {
             immobilizationTimer += deltaTime;
@@ -83,20 +82,30 @@ void Player::Update(float deltaTime) {
         }
         bool spaceCurrentlyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 
-        //space key on new press (not held)
         if (spaceCurrentlyPressed && !spaceKeyPressed) {
             if (harpoonedEnemy) {
-                // pump enemy if harpooned
+                // Pump enemy and advance to next animation frame
                 std::cout << "Pumping harpooned enemy!" << std::endl;
                 harpoonedEnemy->Inflate();
                 harpoonSFX->play();
+
+                // next animation frame when spacebar is pressed
+                animation->currentImage.x++;
+                if (animation->currentImage.x >= animation->imageCount.x) {
+                    animation->currentImage.x = 0; // loop back when reaches the end of animation 
+                }
+
+                // set animation row
+                animation->currentImage.y = 1; // row 1 for pump
+                animation->uvRect.position = sf::Vector2i(animation->currentImage.x * animation->uvRect.size.x,
+                    animation->currentImage.y * animation->uvRect.size.y);
+                sprite.setTextureRect(animation->uvRect);
             }
             else if (!isShooting && !isMoving && !isImmobilized) {
-                harpoonSFX->play();               
+                harpoonSFX->play();
                 startShooting();
             }
         }
-
         spaceKeyPressed = spaceCurrentlyPressed;
 
         if (isShooting) {
@@ -154,7 +163,7 @@ void Player::Update(float deltaTime) {
             sf::Vector2f direction = targetPosition - currentPosition;
             float distance = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 
-            animation->Update(animRow, deltaTime, sprite);
+            animation->Update(0, deltaTime, sprite);
             if (distance < 0.1f) {
                 //  snap to position
                 sprite.setPosition(targetPosition);
@@ -265,6 +274,8 @@ void Player::updateShooting(float deltaTime) {
                 if (harpoonBounds.findIntersection(enemyBounds)) {
                     std::cout << "Enemy harpooned at (" << enemyBounds.position.x << ", " << enemyBounds.position.y << ")" << std::endl;
                     harpoonedEnemy = enemy;
+                   
+                    animation->Update(1, deltaTime, sprite);
                     enemy->AttachHarpoon();
                     isImmobilized = true;
                     immobilizationTimer = 0.0f;

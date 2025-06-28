@@ -10,10 +10,9 @@ public:
 	~Animation();
 
 	void Update(int animationRow, float deltaTime, sf::Sprite& sprite);
-
-private:
-	sf::Vector2u imageCount;
 	sf::Vector2u currentImage;
+	sf::Vector2u imageCount;
+private:
 
 	float totalTime;
 	float switchTime;
