@@ -4,8 +4,9 @@
 #include "Player.h"
 #include "Math.h"
 
-Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true), health(3), lives(2), score(0), speed(30.0f), sprite(texture), size(sf::Vector2f(16, 16)),
-isMoving(false), targetPosition(0, 0), map(gameMap), isShooting(false), shootDirection(0, 0), harpoonSpeed(70.0f), maxHarpoonLength(32.0f), currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture) {
+Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sprite), health(3), lives(2), score(0), speed(30.0f), sprite(texture), size(sf::Vector2f(16, 16)),
+isMoving(false), targetPosition(0, 0), map(gameMap), isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f), currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture)
+{
 }
 
 void Player::Initialise()
@@ -39,7 +40,13 @@ void Player::Load()
         std::cout << "failed to load movement music" << '\n';
     }
     movementMusic.setLooping(true);
-    movementMusic.setVolume(50);
+    movementMusic.setVolume(35);
+    if (!buffer.loadFromFile("Assets/Sounds/SFX/pump.mp3")) {
+        std::cout << "failed to load pump sound" << '\n';
+    }
+    harpoonSFX = sf::Sound(buffer);
+    harpoonSFX->setVolume(75);
+
 
     sprite.setTextureRect(sf::IntRect({ 0 * size.x ,0 * size.y }, { size.x,size.y }));
     // snap pos to grid
@@ -66,57 +73,84 @@ void Player::Update(float deltaTime) {
         bool wasMoving = isMoving;
         int animRow = 0;
 
-        // Handle shooting input
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
-            if (!isShooting && !isMoving) {
-                startShooting();
+        if (isImmobilized) {
+            immobilizationTimer += deltaTime;
+            if (immobilizationTimer >= IMMOBILIZATION_DURATION) {
+                isImmobilized = false;
+                immobilizationTimer = 0.0f;
+                std::cout << "Player can move again!" << std::endl;
             }
-            else if (harpoonedEnemy) {
+        }
+        bool spaceCurrentlyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
+
+        //space key on new press (not held)
+        if (spaceCurrentlyPressed && !spaceKeyPressed) {
+            if (harpoonedEnemy) {
+                // pump enemy if harpooned
+                std::cout << "Pumping harpooned enemy!" << std::endl;
                 harpoonedEnemy->Inflate();
+                harpoonSFX->play();
+            }
+            else if (!isShooting && !isMoving && !isImmobilized) {
+                harpoonSFX->play();               
+                startShooting();
             }
         }
 
-        // Update shooting
+        spaceKeyPressed = spaceCurrentlyPressed;
+
         if (isShooting) {
             updateShooting(deltaTime);
         }
-        // Only allow movement if not shooting
-        else if (!isMoving) {
+        // allow movement if not shooting, not immobilized, and no harpooned enemy
+        else if (!isMoving && !isImmobilized) {
             sf::Vector2f newTarget = targetPosition;
+            bool movementAttempted = false;
+
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
                 newTarget.x -= TILE_SIZE;
                 sprite.setScale(sf::Vector2f(1, 1));
                 sprite.setRotation(sf::degrees(0));
                 lastDirection = sf::Vector2f(-1, 0);
+                movementAttempted = true;
             }
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
                 newTarget.x += TILE_SIZE;
                 sprite.setScale(sf::Vector2f(-1, 1));
                 sprite.setRotation(sf::degrees(0));
                 lastDirection = sf::Vector2f(1, 0);
+                movementAttempted = true;
             }
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
                 newTarget.y -= TILE_SIZE;
                 sprite.setScale(sf::Vector2f(1, -1));
                 sprite.setRotation(sf::degrees(90));
                 lastDirection = sf::Vector2f(0, -1);
+                movementAttempted = true;
             }
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
                 newTarget.y += TILE_SIZE;
                 sprite.setRotation(sf::degrees(90));
                 sprite.setScale(sf::Vector2f(-1, -1));
                 lastDirection = sf::Vector2f(0, 1);
+                movementAttempted = true;
             }
 
-            // new target is within map bounds and not a solid wall
-            if (newTarget != targetPosition && canMoveTo(newTarget)) {
+            // detach harpoon on movement
+            if (movementAttempted && harpoonedEnemy) {
+                std::cout << "Movement key pressed - detaching harpoon!" << std::endl;
+                DetachHarpoon();
+                return; 
+            }
+
+            // movement logic (only executes if no harpooned enemy)
+            if (movementAttempted && newTarget != targetPosition && canMoveTo(newTarget)) {
                 targetPosition = newTarget;
                 isMoving = true;
             }
         }
 
-        // for smooth movement to target
-        if (isMoving) {
+        if (isMoving && !isImmobilized) {
             sf::Vector2f direction = targetPosition - currentPosition;
             float distance = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 
@@ -130,7 +164,6 @@ void Player::Update(float deltaTime) {
                 createTunnel(targetPosition);
             }
             else {
-
                 direction.x /= distance;
                 direction.y /= distance;
                 float moveDistance = speed * deltaTime;
@@ -143,10 +176,16 @@ void Player::Update(float deltaTime) {
                     currentPosition.x += direction.x * moveDistance;
                     currentPosition.y += direction.y * moveDistance;
                     sprite.setPosition(currentPosition);
-
                 }
             }
         }
+        else if (isMoving && (isImmobilized || harpoonedEnemy)) {
+            // Stop movement if we become immobilized or harpoon an enemy
+            isMoving = false;
+            std::cout << "Movement stopped due to immobilization or harpooned enemy" << std::endl;
+        }
+
+        // Handle movement music
         if (isMoving && !wasMoving) {
             std::cout << "Started moving - playing music" << std::endl;
             if (movementMusic.getStatus() != sf::SoundSource::Status::Playing) {
@@ -164,11 +203,10 @@ void Player::Update(float deltaTime) {
 }
 
 void Player::startShooting() {
+    harpoonSFX->play();
     isShooting = true;
     currentHarpoonLength = 0.0f;
-    shootDirection = lastDirection; // Use last movement direction
-
-    // If no direction was set, default to right
+    shootDirection = lastDirection;
     if (shootDirection.x == 0 && shootDirection.y == 0) {
         shootDirection = sf::Vector2f(1, 0);
     }
@@ -182,16 +220,11 @@ void Player::updateShooting(float deltaTime) {
 
     bool hitWall = false;
 
-    // Extend harpoon
     currentHarpoonLength += harpoonSpeed * deltaTime;
 
-    // Calculate harpoon end position
     sf::Vector2f harpoonEndPos = harpoonStartPos + (shootDirection * currentHarpoonLength);
-
-    // Update harpoon sprite position (at the tip)
     harpoonSprite.setPosition(harpoonEndPos);
 
-    // Update harpoon hitbox
     sf::Vector2f harpoonSize;
     sf::Vector2f harpoonHitboxPos;
 
@@ -213,20 +246,32 @@ void Player::updateShooting(float deltaTime) {
     // Check for collision with walls
     if (map != nullptr) {
         int tileType = map->getTileAt(harpoonEndPos.x, harpoonEndPos.y);
-        if (tileType == 1 || tileType == 2 || tileType == 3 || tileType == 4) { // Assuming 1 is solid wall
+        if (tileType == 1 || tileType == 2 || tileType == 3 || tileType == 4) {
             hitWall = true;
         }
     }
 
-    // Check for enemy collisions BEFORE checking length/wall limits
-    if (enemyManager != nullptr) {
+    // Check for enemy collision - FIXED VERSION
+    if (enemyManager != nullptr && !harpoonedEnemy) {
         for (auto& enemy : enemyManager->GetEnemies()) {
-            if (enemy && enemy->isActive() &&
-                harpoonHitbox.getGlobalBounds().findIntersection(enemy->getHitbox().getGlobalBounds())) {
-                harpoonedEnemy = enemy;
-                enemy->AttachHarpoon();
-                std::cout << "Enemy harpooned!" << std::endl;
-                return; // Don't stop shooting when enemy is hit, let player inflate it
+            if (enemy && enemy->isActive()) {                sf::FloatRect enemyBounds = enemy->getBounds();
+                sf::FloatRect harpoonBounds = harpoonHitbox.getGlobalBounds();
+
+                std::cout << "Checking collision - Enemy at (" << enemyBounds.position.x << ", " << enemyBounds.position.y
+                    << ") size (" << enemyBounds.size.x << ", " << enemyBounds.size.y << ")" << std::endl;
+                std::cout << "Harpoon at (" << harpoonBounds.position.x << ", " << harpoonBounds.position.y
+                    << ") size (" << harpoonBounds.size.x << ", " << harpoonBounds.size.y << ")" << std::endl;
+
+                if (harpoonBounds.findIntersection(enemyBounds)) {
+                    std::cout << "Enemy harpooned at (" << enemyBounds.position.x << ", " << enemyBounds.position.y << ")" << std::endl;
+                    harpoonedEnemy = enemy;
+                    enemy->AttachHarpoon();
+                    isImmobilized = true;
+                    immobilizationTimer = 0.0f;
+                    std::cout << "Player immobilized for " << IMMOBILIZATION_DURATION << " seconds" << std::endl;
+
+                    return;
+                }
             }
         }
     }
@@ -240,15 +285,19 @@ void Player::updateShooting(float deltaTime) {
 
 void Player::stopShooting() {
     std::cout << "stopShooting() called" << std::endl;
-
     // Reset shooting state
     isShooting = false;
     currentHarpoonLength = 0.0f;
 
-    // Handle harpooned enemy
-    if (harpoonedEnemy) {
-        harpoonedEnemy->DetachHarpoon();
-        harpoonedEnemy = nullptr;
+    // Handle harpooned enemy - but DON'T detach it here if we hit an enemy
+    // Only detach if we didn't hit an enemy (harpoonedEnemy would be nullptr)
+    if (!harpoonedEnemy) {
+        // Harpoon hit a wall or reached max length without hitting enemy
+        std::cout << "Harpoon stopped without hitting enemy" << std::endl;
+    }
+    else {
+        // Keep the harpoon attached to the enemy
+        std::cout << "Harpoon attached to enemy, keeping connection" << std::endl;
     }
 
     std::cout << "Shooting stopped, isShooting = " << isShooting << std::endl;
@@ -290,30 +339,64 @@ void Player::Draw(sf::RenderWindow& window) {
     window.draw(sprite);
     window.draw(hitbox);
 
-    // Draw harpoon if shooting
-    if (isShooting) {
+    // Draw harpoon if shooting OR if attached to enemy
+    if (isShooting || harpoonedEnemy) {
         // Draw harpoon line
         sf::RectangleShape harpoonLine;
-        if (abs(shootDirection.x) > abs(shootDirection.y)) {
-            // Horizontal
-            harpoonLine.setSize(sf::Vector2f(currentHarpoonLength, 2));
-            harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x, harpoonStartPos.y - 1));
-            if (shootDirection.x < 0) {
-                harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - currentHarpoonLength, harpoonStartPos.y - 1));
+
+        // If attached to enemy, draw line from player to enemy
+        if (harpoonedEnemy) {
+            sf::Vector2f enemyPos = harpoonedEnemy->getBounds().position;
+            enemyPos.x += harpoonedEnemy->getBounds().size.x / 2.0f;
+            enemyPos.y += harpoonedEnemy->getBounds().size.y / 2.0f;
+
+            sf::Vector2f playerPos = sprite.getPosition();
+            sf::Vector2f direction = enemyPos - playerPos;
+            float distance = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+
+            if (abs(direction.x) > abs(direction.y)) {
+                // Horizontal
+                harpoonLine.setSize(sf::Vector2f(distance, 2));
+                harpoonLine.setPosition(sf::Vector2f(playerPos.x, playerPos.y - 1));
+                if (direction.x < 0) {
+                    harpoonLine.setPosition(sf::Vector2f(playerPos.x - distance, playerPos.y - 1));
+                }
+            }
+            else {
+                // Vertical
+                harpoonLine.setSize(sf::Vector2f(2, distance));
+                harpoonLine.setPosition(sf::Vector2f(playerPos.x - 1, playerPos.y));
+                if (direction.y < 0) {
+                    harpoonLine.setPosition(sf::Vector2f(playerPos.x - 1, playerPos.y - distance));
+                }
             }
         }
         else {
-            // Vertical
-            harpoonLine.setSize(sf::Vector2f(2, currentHarpoonLength));
-            harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - 1, harpoonStartPos.y));
-            if (shootDirection.y < 0) {
-                harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - 1, harpoonStartPos.y - currentHarpoonLength));
+            // Normal shooting harpoon
+            if (abs(shootDirection.x) > abs(shootDirection.y)) {
+                // Horizontal
+                harpoonLine.setSize(sf::Vector2f(currentHarpoonLength, 2));
+                harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x, harpoonStartPos.y - 1));
+                if (shootDirection.x < 0) {
+                    harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - currentHarpoonLength, harpoonStartPos.y - 1));
+                }
+            }
+            else {
+                // Vertical
+                harpoonLine.setSize(sf::Vector2f(2, currentHarpoonLength));
+                harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - 1, harpoonStartPos.y));
+                if (shootDirection.y < 0) {
+                    harpoonLine.setPosition(sf::Vector2f(harpoonStartPos.x - 1, harpoonStartPos.y - currentHarpoonLength));
+                }
             }
         }
+
         harpoonLine.setFillColor(sf::Color::White);
         window.draw(harpoonLine);
-        window.draw(harpoonSprite);
-        window.draw(harpoonHitbox);
+
+        if (isShooting) {
+            window.draw(harpoonHitbox);
+        }
     }
 }
 
@@ -331,7 +414,23 @@ bool Player::isCurrentlyShooting() const {
 void Player::shoot() {
     // function is now handled by the spacebar input in Update()
     // call startShooting() directly if needed from other classes
-    if (!isShooting && !isMoving) {
+    if (!isShooting && !isMoving && !isImmobilized && !harpoonedEnemy) {
         startShooting();
+    }
+}
+
+
+void Player::DetachHarpoon() {
+    if (harpoonedEnemy) {
+        std::cout << "Player harpoon detached from enemy" << std::endl;
+        harpoonedEnemy = nullptr;
+
+        // Reset immobilization state
+        isImmobilized = false;
+        immobilizationTimer = 0.0f;
+
+        // Stop shooting state
+        isShooting = false;
+        currentHarpoonLength = 0.0f;
     }
 }

@@ -6,6 +6,8 @@
 #include "Pooka.h"
 #include "Map.h"
 
+class Player;
+
 enum class EnemyType {
     POOKA,
     FYGAR
@@ -16,13 +18,14 @@ class EnemyManager
 private:
     std::vector<std::shared_ptr<Entity>> enemies;
     Map* gameMap;
+    Player* player;
 
 
     int maxEnemies;
     int currentEnemyCount;
 
 public:
-    EnemyManager(Map* map, int maxEnemyCount = 10);
+    EnemyManager(Map* map, Player* player, int maxEnemyCount = 10);
     ~EnemyManager();
 
     void Initialise();

@@ -2,13 +2,12 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include "Player.h"
 
-
-
-EnemyManager::EnemyManager(Map * map, int maxEnemyCount)
-    : gameMap(map), maxEnemies(maxEnemyCount), currentEnemyCount(0)
+EnemyManager::EnemyManager(Map* map, Player* player, int maxEnemyCount)
+    : gameMap(map), player(player), maxEnemies(maxEnemyCount), currentEnemyCount(0)
 {
-    enemies.reserve(maxEnemies); // Reserve space for efficiency
+    enemies.reserve(maxEnemies); // Reserve space
 }
 
 EnemyManager::~EnemyManager()
@@ -58,7 +57,7 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
 
     switch (type) {
     case EnemyType::POOKA: {
-        auto pooka = std::make_shared<Pooka>(gameMap);
+        auto pooka = std::make_shared<Pooka>(gameMap, player);
         pooka->Initialise();
         pooka->Load();
         newEnemy = pooka;
@@ -66,14 +65,14 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
         break;
     }
     case EnemyType::FYGAR: {
-        
-      // 
-      // auto fygar = std::make_shared<Fygar>(gameMap);
-      // fygar->Initialise();
-      // fygar->Load();
-      // newEnemy = fygar;
-      // std::cout << "Spawned Fygar at position (" << position.x << ", " << position.y << ")" << '\n';
-      //
+
+        // 
+        // auto fygar = std::make_shared<Fygar>(gameMap);
+        // fygar->Initialise();
+        // fygar->Load();
+        // newEnemy = fygar;
+        // std::cout << "Spawned Fygar at position (" << position.x << ", " << position.y << ")" << '\n';
+        //
         std::cout << "Fygar spawning not implemented yet!" << '\n';
         return;
     }
@@ -90,14 +89,33 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
 
 void EnemyManager::RemoveDeadEnemies()
 {
+    // Count enemies before removal for debugging
+    size_t initialCount = enemies.size();
+
     // Remove enemies that are no longer alive
-    enemies.erase(
-        std::remove_if(enemies.begin(), enemies.end(),
-            [](const std::shared_ptr<Entity>& enemy) {
-                return !enemy || !enemy->isActive();
-            }),
-        enemies.end()
-    );
+    auto removedCount = std::remove_if(enemies.begin(), enemies.end(),
+        [](const std::shared_ptr<Entity>& enemy) {
+            if (!enemy) {
+                std::cout << "Removing null enemy" << std::endl;
+                return true;
+            }
+            if (!enemy->isActive()) {
+                std::cout << "Removing dead enemy" << std::endl;
+                return true;
+            }
+            return false;
+        });
+
+    // Actually erase the removed enemies
+    enemies.erase(removedCount, enemies.end());
+
+    // Update current count
+    currentEnemyCount = static_cast<int>(enemies.size());
+
+    // Debug output if enemies were removed
+    if (enemies.size() != initialCount) {
+        std::cout << "Removed " << (initialCount - enemies.size()) << " dead enemies. Current count: " << currentEnemyCount << std::endl;
+    }
 }
 
 void EnemyManager::ClearAllEnemies()
@@ -108,19 +126,22 @@ void EnemyManager::ClearAllEnemies()
 
 std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize)
 {
-    sf::FloatRect playerBounds({ playerPosition.x - playerSize.x / 2.0f,
-        playerPosition.y - playerSize.y / 2.0f },
-        {playerSize.x, playerSize.y
-});
+    sf::FloatRect playerBounds;
+    playerBounds.position = sf::Vector2f(
+        playerPosition.x - playerSize.x / 2.0f,
+        playerPosition.y - playerSize.y / 2.0f
+    );
+    playerBounds.size = playerSize;
 
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
-            // Assuming enemies have a similar hitbox system
-            // You might need to add a getBounds() method to Entity class
-            sf::FloatRect enemyBounds({ playerPosition.x - 8.0f, // Half of enemy size
-                playerPosition.y - 8.0f },
-                {16.0f, 16.0f
-        });
+            sf::FloatRect enemyBounds = enemy->getBounds();
+
+          // // Debug output to check bounds
+          // std::cout << "Player bounds: (" << playerBounds.position.x << ", " << playerBounds.position.y
+          //     << ") size (" << playerBounds.size.x << ", " << playerBounds.size.y << ")" << std::endl;
+          // std::cout << "Enemy bounds: (" << enemyBounds.position.x << ", " << enemyBounds.position.y
+          //     << ") size (" << enemyBounds.size.x << ", " << enemyBounds.size.y << ")" << std::endl;
 
             if (playerBounds.findIntersection(enemyBounds)) {
                 return enemy;

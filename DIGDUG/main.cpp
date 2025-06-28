@@ -16,8 +16,8 @@ int main()
     sf::Clock clock;
 
     Map map;
-    EnemyManager enemyManager(&map, 10);
     Player player(&map);
+    EnemyManager enemyManager(&map, &player, 10);
     player.SetEnemyManager(&enemyManager);
     
     map.loadFromFile("Assets/Map/test.rmap");

@@ -9,12 +9,12 @@ Map::Map() {
 
 sf::Color Map::getTileColor(int tileType) {
     switch (tileType) {
-    case 0: return sf::Color::Transparent;    // Empty/air
-    case 1: return sf::Color(139, 69, 19);    // Brown dirt
-    case 2: return sf::Color(105, 105, 105);  // Gray stone
-    case 3: return sf::Color(34, 139, 34);    // Green grass
-    case 4: return sf::Color(65, 105, 225);   // Blue water
-    default: return sf::Color::Magenta;       // Error color
+    case 0: return sf::Color::Transparent;    // Empty/air   THIS WILL BE REPLACED WITH SPRITES SOON
+    case 1: return sf::Color(139, 69, 19);    // Brown dirt  THIS WILL BE REPLACED WITH SPRITES SOON
+    case 2: return sf::Color(105, 105, 105);  // Gray stone  THIS WILL BE REPLACED WITH SPRITES SOON
+    case 3: return sf::Color(34, 139, 34);    // Green grass THIS WILL BE REPLACED WITH SPRITES SOON
+    case 4: return sf::Color(65, 105, 225);   // Blue water  THIS WILL BE REPLACED WITH SPRITES SOON
+    default: return sf::Color::Magenta;       // Error color THIS WILL BE REPLACED WITH SPRITES SOON
     }
 }
 

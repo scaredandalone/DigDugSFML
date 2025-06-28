@@ -15,7 +15,7 @@ private:
     int health;
     int lives;
     int score;
-    float speed; 
+    float speed;
 
     // sprite and hitbox
     sf::RectangleShape hitbox;
@@ -36,6 +36,8 @@ private:
     std::unique_ptr<Animation> animation;
 
     // shooting enemy and harpoonn
+    sf::SoundBuffer buffer;
+    std::optional<sf::Sound> harpoonSFX;
     EnemyManager* enemyManager = nullptr;
     std::shared_ptr<Entity> harpoonedEnemy = nullptr;
     bool isShooting;
@@ -49,27 +51,34 @@ private:
     sf::Texture harpoonTexture;
     sf::Sprite harpoonSprite;
     sf::RectangleShape harpoonHitbox;
+    bool spaceKeyPressed = false;
 
+    bool isImmobilized = false;
+    float immobilizationTimer = 0.0f;
+    const float IMMOBILIZATION_DURATION = 0.25f;
     void startShooting();
     void updateShooting(float deltaTime);
     void stopShooting();
 
 
 public:
+    // main
     Player(Map* gameMap);
     void Initialise();
-    void Update(float deltaTime); 
+    void Update(float deltaTime);
     void Load();
     void Draw(sf::RenderWindow& window);
-    void shoot(); 
-    int getHealth() const { return health; }
-    int getScore() const { return score; }
-    void addScore(int points) { score += points; }
+    void shoot();
+    void DetachHarpoon();
 
-
-    void SetEnemyManager(EnemyManager *manager) { enemyManager = manager; }
-
+    // helper functions
+    void SetEnemyManager(EnemyManager* manager) { enemyManager = manager; }
     sf::Vector2f getPlayerPosition() { return sprite.getPosition(); }
     sf::FloatRect getHarpoonBounds() const;
     bool isCurrentlyShooting() const;
+    int getHealth() const { return health; }
+    int getScore() const { return score; }
+
+    // scoreboard (will be added later)
+    void addScore(int points) { score += points; }
 };
