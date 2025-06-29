@@ -4,7 +4,7 @@
 #include "Player.h"
 #include "Math.h"
 
-Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sprite), health(3), lives(2), score(0), speed(30.0f), sprite(texture), size(sf::Vector2f(16, 16)),
+Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sprite), health(3), lives(2), score(0), speed(30.0f), sprite(texture), size(16,16),
 isMoving(false), targetPosition(0, 0), map(gameMap), isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f), currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture)
 {
 }

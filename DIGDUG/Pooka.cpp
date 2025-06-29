@@ -43,7 +43,7 @@ void Pooka::Load()
     hitbox.setOrigin(sf::Vector2f(size.x / 2.0f, size.y / 2.0f));
 
     std::cout << "pooka loaded successfully" << '\n';
-    animation = std::make_unique<Animation>(&texture, sf::Vector2u(2, 1), 0.25f, size.x, size.y);
+    animation = std::make_unique<Animation>(&texture, sf::Vector2u(2, 2), 0.25f, size.x, size.y);
 }
 
 void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
@@ -78,7 +78,6 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
         sf::Vector2f currentPosition = sprite.getPosition();
         movementTimer += deltaTime;
         stuckTimer += deltaTime;
-        int animRow = 0;
 
         if (!isMoving) {
             sf::Vector2f newTarget = targetPosition;
@@ -221,7 +220,6 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
             sf::Vector2f direction = targetPosition - currentPosition;
             float distance = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 
-            animation->Update(animRow, deltaTime, sprite);
             if (distance < 0.1f) {
                 sprite.setPosition(targetPosition);
                 isMoving = false;
@@ -253,6 +251,16 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                     currentPosition.y += direction.y * moveDistance;
                     sprite.setPosition(currentPosition);
                 }
+            }
+        }
+        if (isMoving) {
+            if (status == 1) {
+                animation->Update(1, deltaTime, sprite); 
+                hitbox.setSize(sf::Vector2f(0, 0));
+            }
+            else {
+                animation->Update(0, deltaTime, sprite); 
+                hitbox.setSize(sf::Vector2f(size.x, size.y));
             }
         }
 
@@ -359,7 +367,7 @@ bool Pooka::isHarpoonAttached() const {
 
 // Override getBounds to return proper sprite bounds
 sf::FloatRect Pooka::getBounds() const {
-    return sprite.getGlobalBounds();
+    return hitbox.getGlobalBounds();
 }
 
 void Pooka::Draw(sf::RenderWindow& window) {

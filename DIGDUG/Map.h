@@ -12,10 +12,11 @@ private:
     static const int TILES_Y = MAP_HEIGHT / TILE_SIZE;  // 15 tiles
 
     std::vector<std::vector<int>> tileData;
-    std::vector<sf::RectangleShape> tiles;
+    std::vector<sf::Sprite> tileSprites;
     sf::Texture tileTexture;
+    sf::Sprite tileSprite;
 
-    sf::Color getTileColor(int tileType);
+    //sf::Sprite getTileSprite(int tileType);
     void buildTiles();
 
 public:
