@@ -6,6 +6,8 @@
 #include "Animation.h"
 #include "EnemyManager.h"
 
+class GameState;
+
 class EnemyManager;
 
 class Player : public Entity {
@@ -31,6 +33,8 @@ private:
 
     bool canMoveTo(sf::Vector2f position);
     void createTunnel(sf::Vector2f position);
+    bool createTunnels = true; 
+
 
     // animation
     std::unique_ptr<Animation> animation;
@@ -61,6 +65,7 @@ private:
     void updateShooting(float deltaTime);
     void stopShooting();
 
+    GameState* gameState = nullptr;
 
 public:
     // main
@@ -79,7 +84,16 @@ public:
     bool isCurrentlyShooting() const;
     int getHealth() const { return health; }
     int getScore() const { return score; }
+    bool getPlayerMoving() const {return isMoving;}
 
     // scoreboard (will be added later)
     void addScore(int points) { score += points; }
+
+
+    // game state
+    void SetGameState(GameState* state) { gameState = state; }
+    void SetCreateTunnels(bool enable) { createTunnels = enable; }
+    void SetPosition(sf::Vector2f pos) { sprite.setPosition(pos); hitbox.setPosition(pos); }
+    void SetTargetPosition(sf::Vector2f target) { targetPosition = target; isMoving = true; }
+    void UpdateAtStart();
 };

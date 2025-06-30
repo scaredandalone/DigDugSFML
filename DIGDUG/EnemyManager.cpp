@@ -144,6 +144,7 @@ std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f play
           //     << ") size (" << enemyBounds.size.x << ", " << enemyBounds.size.y << ")" << std::endl;
 
             if (playerBounds.findIntersection(enemyBounds)) {
+                std::cout << "enemy collided with player" << '\n';
                 return enemy;
             }
         }
@@ -154,18 +155,6 @@ std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f play
 
 void EnemyManager::HandleEnemyCollisions()
 {
-    // Handle collisions between enemies if needed
-    for (size_t i = 0; i < enemies.size(); ++i) {
-        for (size_t j = i + 1; j < enemies.size(); ++j) {
-            if (enemies[i] && enemies[j] &&
-                enemies[i]->isActive() && enemies[j]->isActive()) {
-
-                // Call collision handlers
-                enemies[i]->handleCollision(enemies[j]);
-                enemies[j]->handleCollision(enemies[i]);
-            }
-        }
-    }
 }
 
 int EnemyManager::GetAliveEnemyCount() const

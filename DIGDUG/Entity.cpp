@@ -14,7 +14,7 @@ Entity::~Entity()
 
 void Entity::Update(float deltaTime, sf::Vector2f playerPosition)
 {
-    // Base implementation - override in derived classes
+
 }
 
 void Entity::handleCollision(std::shared_ptr<Entity> other)
