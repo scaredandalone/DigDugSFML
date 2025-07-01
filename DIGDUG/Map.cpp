@@ -85,6 +85,7 @@ void Map::buildTiles() {
     }
 }
 
+
 void Map::draw(sf::RenderWindow& window) {
     for (const auto& tileSprite : tileSprites) {
         window.draw(tileSprite);

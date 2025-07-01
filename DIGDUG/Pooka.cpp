@@ -5,55 +5,45 @@
 #include "Pooka.h"
 #include "Player.h"
 
-Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sprite),
-health(3), speed(15.0f), size(16, 16),
-isMoving(false), targetPosition(0, 0), map(gameMap), player(player), status(0), sprite(texture), pumpSound(pumpBuffer) {
-    // Initialize sprite and texture properly
-    sprite.setTexture(texture);
+Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sf::Vector2i(16, 16)),
+health(3), speed(15.0f), status(0), sprite(texture), pumpSound(pumpBuffer), map(gameMap), player(player) {
 }
 
-void Pooka::Initialise()
-{
-    hitbox.setSize(sf::Vector2f(size.x, size.y));
-    hitbox.setFillColor(sf::Color::Transparent);
-    hitbox.setOutlineColor(sf::Color::Red);
-    hitbox.setOutlineThickness(1);
+void Pooka::Initialise() {
+    Entity::Initialise();
 }
 
-void Pooka::Load()
-{
+void Pooka::Load() {
     if (!texture.loadFromFile("Assets/Sprites/Pooka/spritesheet.png")) {
         std::cout << "failed to load pooka sprite" << '\n';
     }
-
-    sprite.setTexture(texture); // Make sure texture is set
-
-    sprite.setTextureRect(sf::IntRect({ 0 * size.x ,0 * size.y }, { size.x,size.y }));
-    // snap pos to grid
-    sf::Vector2f initialPos(144, 144);
-    initialPos.x = ((int)initialPos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-    initialPos.y = ((int)initialPos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-    targetPosition = sf::Vector2f(initialPos.x, initialPos.y);
-
-    sprite.setPosition(initialPos);
+    sprite.setTexture(texture);
+    sprite.setTextureRect(sf::IntRect({ 0, 0 }, { size.x, size.y }));
     sprite.setOrigin(sf::Vector2f(size.x / 2.0f, size.y / 2.0f));
     sprite.setScale(sf::Vector2f(1, 1));
+    sprite.setPosition({ 122, 144 });
 
     hitbox.setSize(sf::Vector2f(size.x * sprite.getScale().x, size.y * sprite.getScale().y));
     hitbox.setOrigin(sf::Vector2f(size.x / 2.0f, size.y / 2.0f));
+
+    if (!pumpBuffer.loadFromFile("Assets/Sounds/SFX/pump.mp3")) {
+        std::cout << "failed to load pump sound" << '\n';
+    }
+    pumpSound.setBuffer(pumpBuffer);
 
     std::cout << "pooka loaded successfully" << '\n';
     animation = std::make_unique<Animation>(&texture, sf::Vector2u(2, 2), 0.25f, size.x, size.y);
 }
 
 void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
-    // pumpState deflation
+    if (health <= 0 || !isAlive) return;
+
+    // Handle pump state deflation
     if (harpoonStuck && pumpState >= 0) {
         pumpTimer += deltaTime;
         if (pumpTimer >= PUMP_DURATION) {
             // Deflate one level
             pumpState = std::max(0, pumpState - 1);
-            int healthMax = 3;
             if (health < 3) {
                 health += 1;
             }
@@ -69,7 +59,8 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
-    // pump cooldown - prevent rapid pumping
+
+    // Handle movement when not harpooned or pumped
     if (pumpCooldownTimer > 0.0f) {
         pumpCooldownTimer -= deltaTime;
     }
@@ -255,11 +246,11 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
         }
         if (isMoving) {
             if (status == 1) {
-                animation->Update(1, deltaTime, sprite); 
+                animation->Update(1, deltaTime, sprite);
                 hitbox.setSize(sf::Vector2f(0, 0));
             }
             else {
-                animation->Update(0, deltaTime, sprite); 
+                animation->Update(0, deltaTime, sprite);
                 hitbox.setSize(sf::Vector2f(size.x, size.y));
             }
         }
@@ -289,7 +280,6 @@ bool Pooka::canMoveTo(sf::Vector2f position) {
 void Pooka::AttachHarpoon() {
     if (!harpoonStuck) {
         harpoonStuck = true;
-
         std::cout << "Harpoon attached to Pooka" << std::endl;
     }
 }
@@ -297,13 +287,9 @@ void Pooka::AttachHarpoon() {
 void Pooka::DetachHarpoon() {
     if (harpoonStuck) {
         harpoonStuck = false;
-
-
-        // Notify player to detach harpoon
         if (player != nullptr) {
             player->DetachHarpoon();
         }
-
         std::cout << "Harpoon detached from Pooka" << std::endl;
     }
 }
@@ -311,20 +297,14 @@ void Pooka::DetachHarpoon() {
 void Pooka::Inflate() {
     if (harpoonStuck && pumpCooldownTimer <= 0.0f && pumpState < 3) {
         pumpState++;
-        pumpTimer = 0.0f; // Reset deflation timer
-        pumpCooldownTimer = PUMP_COOLDOWN; // Set pump cooldown
-
-        // Update sprite based on new pump state
+        pumpTimer = 0.0f;
+        pumpCooldownTimer = PUMP_COOLDOWN;
         pumpSound.play();
         updateInflationSprite();
-
         std::cout << "Pooka inflated to state: " << pumpState << std::endl;
-
-
         if (pumpState >= 3) {
             health = 0;
             isAlive = false;
-            // FIXED: Detach harpoon when enemy dies
             DetachHarpoon();
             std::cout << "Pooka destroyed!" << std::endl;
         }
@@ -333,31 +313,25 @@ void Pooka::Inflate() {
         std::cout << "Pump on cooldown: " << pumpCooldownTimer << "s remaining" << std::endl;
     }
 }
+
 void Pooka::updateInflationSprite() {
     switch (pumpState) {
-    case 0: 
-       // sprite.setTextureRect(sf::IntRect(0 * size.x, 0 * size.y, size.x, size.y));
+    case 0:
         sprite.setScale(sf::Vector2f(1.0f, 1.0f));
         break;
-    case 1: 
-        //sprite.setTextureRect(sf::IntRect(1 * size.x, 0 * size.y, size.x, size.y));
-        sprite.setScale(sf::Vector2f(1.2f, 1.2f)); // 20% bigger
+    case 1:
+        sprite.setScale(sf::Vector2f(1.2f, 1.2f));
         break;
-    case 2: 
-       // sprite.setTextureRect(sf::IntRect(2 * size.x, 0 * size.y, size.x, size.y));
-        sprite.setScale(sf::Vector2f(1.4f, 1.4f)); // 40% bigger
+    case 2:
+        sprite.setScale(sf::Vector2f(1.4f, 1.4f));
         break;
-    case 3: 
-        //sprite.setTextureRect(sf::IntRect(3 * size.x, 0 * size.y, size.x, size.y));
-        sprite.setScale(sf::Vector2f(1.6f, 1.6f)); // 60% bigger
+    case 3:
+        sprite.setScale(sf::Vector2f(1.6f, 1.6f));
         break;
     }
-
-    // Update hitbox to match new sprite size
     sf::Vector2f newScale = sprite.getScale();
     hitbox.setSize(sf::Vector2f(size.x * newScale.x, size.y * newScale.y));
     hitbox.setOrigin(sf::Vector2f((size.x * newScale.x) / 2.0f, (size.y * newScale.y) / 2.0f));
-
     std::cout << "Pooka sprite updated for pump state: " << pumpState << std::endl;
 }
 
@@ -365,13 +339,18 @@ bool Pooka::isHarpoonAttached() const {
     return harpoonStuck;
 }
 
-// Override getBounds to return proper sprite bounds
-sf::FloatRect Pooka::getBounds() const {
-    return hitbox.getGlobalBounds();
+void Pooka::setPosition(sf::Vector2f pos) {
+    // Snap to grid for tile-based movement
+    pos.x = ((int)pos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+    pos.y = ((int)pos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+
+    targetPosition = pos;
+    sprite.setPosition(pos);
+    hitbox.setPosition(pos);
+    isMoving = false;
 }
 
 void Pooka::Draw(sf::RenderWindow& window) {
-    // Only draw if the Pooka is alive
     if (isAlive && health > 0) {
         window.draw(sprite);
         window.draw(hitbox);

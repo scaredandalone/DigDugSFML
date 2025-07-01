@@ -3,27 +3,24 @@
 #include <algorithm>
 #include <cmath>
 #include "Player.h"
+#include "Pooka.h"
+#include "GameState.h"
 
 EnemyManager::EnemyManager(Map* map, Player* player, int maxEnemyCount)
-    : gameMap(map), player(player), maxEnemies(maxEnemyCount), currentEnemyCount(0)
-{
-    enemies.reserve(maxEnemies); // Reserve space
+    : gameMap(map), player(player), maxEnemies(maxEnemyCount), currentEnemyCount(0) {
+    enemies.reserve(maxEnemies); 
 }
 
-EnemyManager::~EnemyManager()
-{
+EnemyManager::~EnemyManager() {
     ClearAllEnemies();
 }
 
-void EnemyManager::Initialise()
-{
+void EnemyManager::Initialise() {
     std::cout << "EnemyManager initialized" << '\n';
 }
 
-
-void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition)
-{
-    // Update all enemies
+void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition) {
+    // Update all enemie
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
             enemy->Update(deltaTime, playerPosition);
@@ -31,23 +28,24 @@ void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition)
     }
 
     // Handle collisions between enemies
-    HandleEnemyCollisions();
+    CheckCollisionWithPlayer(playerPosition, {16,16});
 
     // Remove dead enemies
     RemoveDeadEnemies();
 }
 
-void EnemyManager::Draw(sf::RenderWindow& window)
-{
-    for (auto& enemy : enemies) {
-        if (enemy && enemy->isActive()) {
-            enemy->Draw(window);
+void EnemyManager::Draw(sf::RenderWindow& window) {
+    States currentState = gameState->getGameState();
+    if (currentState == States::GAME) {
+        for (auto& enemy : enemies) {
+            if (enemy && enemy->isActive()) {
+                enemy->Draw(window);
+            }
         }
     }
 }
 
-void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
-{
+void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
     if (GetAliveEnemyCount() >= maxEnemies) {
         std::cout << "Cannot spawn enemy: max enemy limit reached (" << maxEnemies << ")" << '\n';
         return;
@@ -60,19 +58,13 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
         auto pooka = std::make_shared<Pooka>(gameMap, player);
         pooka->Initialise();
         pooka->Load();
+        pooka->setPosition(position); // 
         newEnemy = pooka;
         std::cout << "Spawned Pooka at position (" << position.x << ", " << position.y << ")" << '\n';
         break;
     }
     case EnemyType::FYGAR: {
-
-        // 
-        // auto fygar = std::make_shared<Fygar>(gameMap);
-        // fygar->Initialise();
-        // fygar->Load();
-        // newEnemy = fygar;
-        // std::cout << "Spawned Fygar at position (" << position.x << ", " << position.y << ")" << '\n';
-        //
+        // Placeholder for Fygar spawning
         std::cout << "Fygar spawning not implemented yet!" << '\n';
         return;
     }
@@ -87,12 +79,8 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position)
     }
 }
 
-void EnemyManager::RemoveDeadEnemies()
-{
-    // Count enemies before removal for debugging
+void EnemyManager::RemoveDeadEnemies() {
     size_t initialCount = enemies.size();
-
-    // Remove enemies that are no longer alive
     auto removedCount = std::remove_if(enemies.begin(), enemies.end(),
         [](const std::shared_ptr<Entity>& enemy) {
             if (!enemy) {
@@ -106,26 +94,20 @@ void EnemyManager::RemoveDeadEnemies()
             return false;
         });
 
-    // Actually erase the removed enemies
     enemies.erase(removedCount, enemies.end());
-
-    // Update current count
     currentEnemyCount = static_cast<int>(enemies.size());
 
-    // Debug output if enemies were removed
     if (enemies.size() != initialCount) {
         std::cout << "Removed " << (initialCount - enemies.size()) << " dead enemies. Current count: " << currentEnemyCount << std::endl;
     }
 }
 
-void EnemyManager::ClearAllEnemies()
-{
+void EnemyManager::ClearAllEnemies() {
     enemies.clear();
     currentEnemyCount = 0;
 }
 
-std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize)
-{
+std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize) {
     sf::FloatRect playerBounds;
     playerBounds.position = sf::Vector2f(
         playerPosition.x - playerSize.x / 2.0f,
@@ -136,13 +118,6 @@ std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f play
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
             sf::FloatRect enemyBounds = enemy->getBounds();
-
-          // // Debug output to check bounds
-          // std::cout << "Player bounds: (" << playerBounds.position.x << ", " << playerBounds.position.y
-          //     << ") size (" << playerBounds.size.x << ", " << playerBounds.size.y << ")" << std::endl;
-          // std::cout << "Enemy bounds: (" << enemyBounds.position.x << ", " << enemyBounds.position.y
-          //     << ") size (" << enemyBounds.size.x << ", " << enemyBounds.size.y << ")" << std::endl;
-
             if (playerBounds.findIntersection(enemyBounds)) {
                 std::cout << "enemy collided with player" << '\n';
                 return enemy;
@@ -153,12 +128,11 @@ std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f play
     return nullptr; // No collision
 }
 
-void EnemyManager::HandleEnemyCollisions()
-{
+void EnemyManager::HandleEnemyCollisions() {
+    // Placeholder for enemy-enemy collision logic
 }
 
-int EnemyManager::GetAliveEnemyCount() const
-{
+int EnemyManager::GetAliveEnemyCount() const {
     int count = 0;
     for (const auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {

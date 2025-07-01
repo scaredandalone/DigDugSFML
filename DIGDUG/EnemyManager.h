@@ -5,6 +5,7 @@
 #include "Entity.h"
 #include "Pooka.h"
 #include "Map.h"
+class GameState;
 
 class Player;
 
@@ -19,6 +20,8 @@ private:
     std::vector<std::shared_ptr<Entity>> enemies;
     Map* gameMap;
     Player* player;
+
+    GameState* gameState;
 
 
     int maxEnemies;
@@ -45,4 +48,5 @@ public:
     const std::vector<std::shared_ptr<Entity>>& GetEnemies() const { return enemies; }
 
     void SetMaxEnemies(int max) { maxEnemies = max; }
+    void SetGameState(GameState* state) { gameState = state; }
 };
