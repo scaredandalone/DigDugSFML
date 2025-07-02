@@ -40,6 +40,7 @@ public:
     virtual void updateInflationSprite();
     virtual void setPosition(sf::Vector2f pos);
     virtual void setTargetPosition(sf::Vector2f target);
+    virtual bool getInflationStatus();
 
     sf::FloatRect getBounds() const;
     sf::Vector2f getPosition() const { return hitbox.getPosition(); }

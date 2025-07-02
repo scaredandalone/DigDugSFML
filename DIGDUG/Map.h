@@ -2,22 +2,28 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <string>
+#include <map>
 
 class Map {
 private:
     static const int TILE_SIZE = 16;
-    static const int MAP_WIDTH = 224;  // pixels
-    static const int MAP_HEIGHT = 248; // pixels
-    static const int TILES_X = MAP_WIDTH / TILE_SIZE;   // 14 tiles
+    static const int MAP_WIDTH = 224;  // 14 tiles
+    static const int MAP_HEIGHT = 240; // 15 tiles
+    static const int TILES_X = MAP_WIDTH / TILE_SIZE;     // 14 tiles
     static const int TILES_Y = MAP_HEIGHT / TILE_SIZE;  // 15 tiles
 
     std::vector<std::vector<int>> tileData;
     std::vector<sf::Sprite> tileSprites;
     sf::Texture tileTexture;
     sf::Sprite tileSprite;
+    std::map<char, int> charToTileType;
+    std::map<int, int> tileTypeToTexture;  // Maps tile type to texture index
+    std::vector<std::pair<char, sf::Vector2f>> entitySpawns;
+    int currentLevel;
 
-    //sf::Sprite getTileSprite(int tileType);
     void buildTiles();
+    void setupTileMappings();
+    void setupTextureMapping();  
 
 public:
     Map();
@@ -25,14 +31,15 @@ public:
     bool loadFromFile(const std::string& filename);
     void draw(sf::RenderWindow& window);
 
-    // tile access
     int getTileAt(float x, float y);
     void setTileAt(float x, float y, int tileType);
     int getTileAtGrid(int gridX, int gridY);
     bool isSolid(float x, float y);
 
-    // info / debug 
     sf::Vector2i getMapSize() const;
     sf::Vector2i getGridSize() const;
     void printInfo();
+
+    const std::vector<std::pair<char, sf::Vector2f>>& getEntitySpawns() const { return entitySpawns; }
+    void setCurrentLevel(int level);
 };

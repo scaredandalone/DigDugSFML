@@ -5,10 +5,14 @@
 #include "GameState.h"
 
 Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sf::Vector2i(16, 16)),
-health(3), lives(2), score(0), speed(40.0f), sprite(texture),
+health(1), lives(1), score(0), speed(40.0f), sprite(texture),
 isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f),
 currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture), map(gameMap), createTunnels(true),
-harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND), MovementMusic("Assets/Sounds/Music/moving1.mp3", SFX::Type::MUSIC) {
+harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND), MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC), harpoonTimer(0)
+ 
+ 
+ 
+{
 }
 
 void Player::Initialise() {
@@ -38,10 +42,11 @@ void Player::Load() {
     sprite.setScale(sf::Vector2f(1, 1));
 
     std::cout << "player loaded successfully" << '\n';
-    animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y);
+    animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y, true);
 
     MovementMusic.setVolume(30);
     MovementMusic.setLoop(true);
+    harpoonSound.setVolume(10);
 }
 
 void Player::setPosition(sf::Vector2f pos) {
@@ -58,7 +63,6 @@ void Player::setPosition(sf::Vector2f pos) {
 }
 
 void Player::Update(float deltaTime, sf::Vector2f playerPosition) {
-    if (health <= 0) return;
 
     // Handle immobilization timer regardless of state
     if (isImmobilized) {
@@ -83,11 +87,20 @@ void Player::Update(float deltaTime, sf::Vector2f playerPosition) {
         case States::WIN:
             updateWinState(deltaTime, playerPosition);
             break;
+        case States::LOSS:
+            updateLossState(deltaTime, playerPosition);
+            break;
         }
     }
 }
 
 void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
+    if (deathAnimationStarted) {
+        deathAnimationStarted = false;
+        animation->ResetAnimation();
+        animation->Update(0, deltaTime, sprite);
+        animation->SetLooping(true); // Reset to looping for normal animations
+    }
     MovementMusic.stop();
     playerPosition = initialPos;
     if (isMoving) {
@@ -146,6 +159,16 @@ void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
 void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
     bool wasMoving = isMoving;
 
+    // Handle immobilization timer regardless of state
+    if (isImmobilized) {
+        immobilizationTimer += deltaTime;
+        if (immobilizationTimer >= IMMOBILIZATION_DURATION) {
+            isImmobilized = false;
+            immobilizationTimer = 0.0f;
+            std::cout << "Player can move again!" << std::endl;
+        }
+    }
+
     // Handle space key for shooting/pumping
     bool spaceCurrentlyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
     if (spaceCurrentlyPressed && !spaceKeyPressed) {
@@ -173,10 +196,33 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
     if (isShooting) {
         updateShooting(deltaTime);
     }
-    // Handle movement input
-    else if (!isMoving && !isImmobilized && !harpoonedEnemy) {
+    // --- START MODIFIED LOGIC ---
+    // Check for movement input specifically to detach harpoon, before the main movement block
+    // This uses the same 'movementAttempted' check structure you had, but ensures it runs
+    // even if the player is technically "not moving" due to being harpooned.
+    bool movementAttemptedThisFrame = false; // New flag to track if any movement key was pressed
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
+        movementAttemptedThisFrame = true;
+    }
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
+        movementAttemptedThisFrame = true;
+    }
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
+        movementAttemptedThisFrame = true;
+    }
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
+        movementAttemptedThisFrame = true;
+    }
+
+    if (movementAttemptedThisFrame && harpoonedEnemy) { // If a movement key was pressed AND an enemy is harpooned
+        std::cout << "Movement key pressed - detaching harpoon!" << std::endl;
+        DetachHarpoon();
+        return; // Exit update early as player just detached and might start moving next frame
+    }
+
+    else if (!isMoving && !isImmobilized && !harpoonedEnemy) { 
         sf::Vector2f newTarget = targetPosition;
-        bool movementAttempted = false;
+        bool movementAttempted = false; 
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
             newTarget.x -= TILE_SIZE;
@@ -195,18 +241,13 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
             movementAttempted = true;
         }
 
-        if (movementAttempted && harpoonedEnemy) {
-            std::cout << "Movement key pressed - detaching harpoon!" << std::endl;
-            DetachHarpoon();
-            return;
-        }
-
+  
         if (movementAttempted && newTarget != targetPosition && canMoveTo(newTarget, map)) {
             setTargetPosition(newTarget);
         }
     }
 
-    // Stop movement if immobilized or harpooned
+
     if (isMoving && (isImmobilized || harpoonedEnemy)) {
         isMoving = false;
         std::cout << "Movement stopped due to immobilization or harpooned enemy" << std::endl;
@@ -280,9 +321,9 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
 }
 
 void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
-    // During WIN state, stop all movement and music
+    resetTransform();
     MovementMusic.stop();
-
+    animation->Update(0, 0, sprite);
     // Stop any ongoing shooting
     if (isShooting) {
         stopShooting();
@@ -300,6 +341,27 @@ void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
     // For now, just keep the player stationary
 }
 
+void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
+{
+    if (!deathAnimationStarted) {
+        animation->ResetAnimation();
+        animation->SetLooping(false); // Death animation should not loop
+        deathAnimationStarted = true;
+        std::cout << "Death animation started" << std::endl;
+    }
+    MovementMusic.stop();
+
+    // Always try to update the animation
+    animation->Update(2, deltaTime, sprite);
+
+    if (isShooting) {
+        stopShooting();
+    }
+    if (harpoonedEnemy) {
+        DetachHarpoon();
+    }
+    isMoving = false;
+}
 void Player::startShooting() {
     harpoonSound.play();
     isShooting = true;
@@ -337,7 +399,7 @@ void Player::updateShooting(float deltaTime) {
 
     if (map != nullptr) {
         int tileType = map->getTileAt(harpoonEndPos.x, harpoonEndPos.y);
-        if (tileType == 1 || tileType == 2 || tileType == 3 || tileType == 4) {
+        if (tileType == 1 || tileType == 2 || tileType == 3 || tileType == 4 || tileType == 5) {
             hitWall = true;
         }
     }
@@ -383,14 +445,14 @@ void Player::stopShooting() {
 void Player::createTunnel(sf::Vector2f position) {
     if (map != nullptr && createTunnels) {
         int tileType = map->getTileAt(position.x, position.y);
-        if (tileType == 2 || tileType == 3 || tileType == 4) {
+        if (tileType == 2 || tileType == 3 || tileType == 4 || tileType == 5) {
             map->setTileAt(position.x, position.y, 0);
             if (gameState && gameState->getGameState() != States::START) {
                 if (tileType == 2) score += 10;
                 if (tileType == 3) score += 20;
-                if (tileType == 4) score += 5;
+                if (tileType == 4) score += 30;
+                if (tileType == 5) score += 40; 
             }
-            std::cout << "Tunnel created at (" << position.x << ", " << position.y << ")! Score: " << score << std::endl;
         }
     }
 }
@@ -472,5 +534,11 @@ void Player::DetachHarpoon() {
         immobilizationTimer = 0.0f;
         isShooting = false;
         currentHarpoonLength = 0.0f;
+        harpoonTimer = 0.0f;
     }
+}
+
+void Player::resetDeathAnimation() {
+    deathAnimationStarted = false;
+    std::cout << "Death animation reset" << std::endl;
 }

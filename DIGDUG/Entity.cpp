@@ -104,3 +104,11 @@ bool Entity::isHarpoonAttached() const {
 void Entity::updateInflationSprite() {
     // Base implementation
 }
+bool Entity::getInflationStatus() {
+    if (Entity::getInflationStatus() > 0) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}

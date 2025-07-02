@@ -1,0 +1,23 @@
+#pragma once
+#include <string>
+#include <vector>
+
+class StageManager
+{
+private:
+	std::vector<std::string> mapFiles;
+	std::string mapDirectory; 
+
+public:
+		StageManager(const std::string& directory = "Assets/Map");
+        void loadMapList();
+        void addMapFile(const std::string& filename);
+        std::string getMapFile(int level) const;
+        std::string loadMapData(int level) const;
+        std::vector<std::string> loadMapLines(int level) const;
+        int getMapCount() const;
+        const std::vector<std::string>& getMapFiles() const;
+        void printAvailableMaps() const;
+        
+};
+

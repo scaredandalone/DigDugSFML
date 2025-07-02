@@ -20,16 +20,18 @@ private:
     float movementTimer = 0.0f;
     float movementDelay = 1.0f;
     float stuckTimer = 0.0f;
-    float ghostModeDelay = 5.0f + static_cast<float>(rand()) / RAND_MAX * 5.0f;
+    float ghostModeDelay = 2.0f + static_cast<float>(rand()) / RAND_MAX * 5.0f;
 
     bool harpoonStuck = false;
     sf::SoundBuffer pumpBuffer;
     sf::Sound pumpSound;
-    int pumpState = 0; // 0 = normal, 1 = first pump, 2 = second pump, 3 = dead
+    int pumpState = 0; // 0 = normal, 1 = first pump, 2 = second pump, 3 = third pump, 4 = DEAD AF
     float pumpTimer = 0.0f;
+    const int MAX_PUMP_STATE = 4;
     const float PUMP_DURATION = 1.0f;
     float pumpCooldownTimer = 0.0f;
     const float PUMP_COOLDOWN = 0.1f;
+
 
 private:
     bool canMoveTo(sf::Vector2f position);
@@ -47,6 +49,14 @@ public:
     bool isHarpoonAttached() const override;
     void updateInflationSprite() override;
     void setPosition(sf::Vector2f pos) override;
+    bool getInflationStatus() override {
+        if (pumpState > 0) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 
     sf::FloatRect getBounds() const {
         return hitbox.getGlobalBounds();

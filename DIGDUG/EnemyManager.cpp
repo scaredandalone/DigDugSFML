@@ -8,7 +8,7 @@
 
 EnemyManager::EnemyManager(Map* map, Player* player, int maxEnemyCount)
     : gameMap(map), player(player), maxEnemies(maxEnemyCount), currentEnemyCount(0) {
-    enemies.reserve(maxEnemies); 
+    enemies.reserve(maxEnemies);
 }
 
 EnemyManager::~EnemyManager() {
@@ -20,17 +20,12 @@ void EnemyManager::Initialise() {
 }
 
 void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition) {
-    // Update all enemie
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
             enemy->Update(deltaTime, playerPosition);
         }
     }
-
-    // Handle collisions between enemies
-    CheckCollisionWithPlayer(playerPosition, {16,16});
-
-    // Remove dead enemies
+    CheckCollisionWithPlayer(playerPosition, { 16,16 });
     RemoveDeadEnemies();
 }
 
@@ -41,6 +36,17 @@ void EnemyManager::Draw(sf::RenderWindow& window) {
             if (enemy && enemy->isActive()) {
                 enemy->Draw(window);
             }
+        }
+    }
+}
+
+void EnemyManager::SpawnEnemiesFromMap() {
+    const auto& spawns = gameMap->getEntitySpawns();
+    for (const auto& spawn : spawns) {
+        char spawnType = spawn.first;
+        sf::Vector2f position = spawn.second;
+        if (spawnType == 'P') {
+            SpawnEnemy(EnemyType::POOKA, position);
         }
     }
 }
@@ -58,13 +64,12 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
         auto pooka = std::make_shared<Pooka>(gameMap, player);
         pooka->Initialise();
         pooka->Load();
-        pooka->setPosition(position); // 
+        pooka->setPosition(position);
         newEnemy = pooka;
         std::cout << "Spawned Pooka at position (" << position.x << ", " << position.y << ")" << '\n';
         break;
     }
     case EnemyType::FYGAR: {
-        // Placeholder for Fygar spawning
         std::cout << "Fygar spawning not implemented yet!" << '\n';
         return;
     }
@@ -120,16 +125,20 @@ std::shared_ptr<Entity> EnemyManager::CheckCollisionWithPlayer(sf::Vector2f play
             sf::FloatRect enemyBounds = enemy->getBounds();
             if (playerBounds.findIntersection(enemyBounds)) {
                 std::cout << "enemy collided with player" << '\n';
+                HandleEnemyCollisions();
                 return enemy;
             }
         }
     }
 
-    return nullptr; // No collision
+    return nullptr;
 }
 
 void EnemyManager::HandleEnemyCollisions() {
-    // Placeholder for enemy-enemy collision logic
+    for (auto& enemy : enemies) {
+        if(enemy->getInflationStatus() == false)
+            player->setHealth(0);
+    }
 }
 
 int EnemyManager::GetAliveEnemyCount() const {

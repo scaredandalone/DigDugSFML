@@ -2,7 +2,8 @@
 enum class States {
     START,
     GAME,
-    WIN
+    WIN,
+    LOSS
 };
 
 class GameState {

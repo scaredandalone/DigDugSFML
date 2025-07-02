@@ -39,6 +39,8 @@ private:
     float harpoonSpeed;
     float maxHarpoonLength;
     float currentHarpoonLength;
+    float harpoonTimer;
+    const float HARPOON_DURATION = 3.0f;
     sf::Texture harpoonTexture;
     sf::Sprite harpoonSprite;
     sf::RectangleShape harpoonHitbox;
@@ -49,16 +51,19 @@ private:
     const float IMMOBILIZATION_DURATION = 0.25f;
     bool createTunnels = true;
     //gameplay
+
+    sf::Vector2f facingDirection;
+    void updateSpriteOrientation(sf::Vector2f direction);
+
     void startShooting();
     void updateShooting(float deltaTime);
     void stopShooting();
     void createTunnel(sf::Vector2f position);
     // gamestate
     GameState* gameState = nullptr;
-    void updateStartState(float deltaTime, sf::Vector2f playerPosition);
-    void updateGameState(float deltaTime, sf::Vector2f playerPosition);
-    void updateWinState(float deltaTime, sf::Vector2f playerPosition);
-
+    // death
+    bool deathAnimationComplete = false;
+    bool deathAnimationStarted = false;
 public:
     Player(Map* gameMap);
     void Initialise() override;
@@ -67,7 +72,8 @@ public:
     void Draw(sf::RenderWindow& window) override;
     void shoot();
     void DetachHarpoon() override;
-    void setPosition(sf::Vector2f pos) override; // Add override for setPosition
+    void setPosition(sf::Vector2f pos) override; 
+    bool getInflationStatus() override {return 0;}
 
     void SetEnemyManager(EnemyManager* manager) { enemyManager = manager; }
     sf::Vector2f getPlayerPosition() { return sprite.getPosition(); }
@@ -85,6 +91,18 @@ public:
     void SetCreateTunnels(bool enable) { createTunnels = enable; }
     void setIsMoving(bool state) { isMoving = state; }
 
+    void updateStartState(float deltaTime, sf::Vector2f playerPosition);
+    void updateGameState(float deltaTime, sf::Vector2f playerPosition);
+    void updateWinState(float deltaTime, sf::Vector2f playerPosition);
+    void updateLossState(float deltaTime, sf::Vector2f playerPosition);
 
+    void resetTransform() {
+        sprite.setRotation(sf::degrees(0));
+        sprite.setScale({ 1, 1 });
+    }
+    void setHealth(int hp) { health = hp; };
+    int getLives() { return lives;}
+    void setLives(int life) { lives = life; }
+    void resetDeathAnimation();
 
 };

@@ -20,10 +20,7 @@ private:
     std::vector<std::shared_ptr<Entity>> enemies;
     Map* gameMap;
     Player* player;
-
     GameState* gameState;
-
-
     int maxEnemies;
     int currentEnemyCount;
 
@@ -34,11 +31,10 @@ public:
     void Initialise();
     void Update(float deltaTime, sf::Vector2f playerPosition);
     void Draw(sf::RenderWindow& window);
-
+    void SpawnEnemiesFromMap(); 
     void SpawnEnemy(EnemyType type, sf::Vector2f position);
     void RemoveDeadEnemies();
     void ClearAllEnemies();
-
 
     std::shared_ptr<Entity> CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize);
     void HandleEnemyCollisions();

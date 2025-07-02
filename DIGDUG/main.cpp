@@ -5,38 +5,54 @@
 #include "Pooka.h"
 #include "EnemyManager.h"
 #include "GameState.h"
+#include "StageManager.h"
 
 int main()
 {
     // - - - - - - - - - - - - Initialise - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     sf::ContextSettings settings;
-    sf::RenderWindow window(sf::VideoMode({ 244, 288 }), "DIG DUG", sf::Style::Resize, sf::State::Windowed, settings);
-    // - - - - - - - - - - - - Initialise - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    sf::RenderWindow window(sf::VideoMode({ 224, 270 }), "DIG DUG", sf::Style::Default, sf::State::Windowed, settings);
 
-    // Load font
     sf::Font font;
     if (!font.openFromFile("Assets/Fonts/arial.ttf")) {
         std::cerr << "Failed to load font!" << std::endl;
         return -1;
     }
 
+    SFX victory("Assets/Sounds/Music/success.mp3");
+    victory.setVolume(30);
+
+    // Initialize StageManager
+    StageManager stageManager("Assets/Map/");
+    int currentStage = 0;
+
     // Create text objects
     sf::Text startText(font, "");
     startText.setString("Stage Start");
     startText.setCharacterSize(10);
     startText.setFillColor(sf::Color::Yellow);
-    startText.setPosition(sf::Vector2f({ 122 }, { 50 }));
+    startText.setPosition(sf::Vector2f(112, 50));
 
     sf::Text winText(font, "");
     winText.setString("Stage Clear");
     winText.setCharacterSize(10);
     winText.setFillColor(sf::Color::Yellow);
-    winText.setPosition(sf::Vector2f({ 122 }, { 50 }));
+    winText.setPosition(sf::Vector2f(112, 50));
+
+    sf::Text lossText(font, "");
+    lossText.setString("Game Over");
+    lossText.setCharacterSize(10);
+    lossText.setFillColor(sf::Color::Red);
+    lossText.setPosition(sf::Vector2f(112, 50));
+
+  
 
     // Load start scene music
+    SFX lossMusic("Assets/Sounds/Music/loss.mp3", SFX::Type::MUSIC);
+    SFX noLivesMusic("Assets/Sounds/Music/nolivesleft.mp3", SFX::Type::MUSIC);
     SFX startMusic("Assets/Sounds/Music/start_music.mp3", SFX::Type::MUSIC);
-    startMusic.setLoop(false);
-    startMusic.setVolume(35);
+    startMusic.setLoop(false); lossMusic.setLoop(false); noLivesMusic.setLoop(false);
+    startMusic.setVolume(35); lossMusic.setVolume(35); noLivesMusic.setVolume(35);
 
     sf::Clock clock;
     GameState gameState;
@@ -44,12 +60,21 @@ int main()
 
     float winDelayTimer = 0.0f;
     float startDelayTimer = 0.0f;
+    float startPauseTimer = 0.0f;
+    float lossDelayTimer = 0.0f;
     const float START_DELAY = 8.0f;
     const float WIN_DELAY = 3.0f;
+    const float START_PAUSE_DELAY = 1.0f;
+    const float LOSS_DELAY = 6.0f;
     int startSceneStep = 0;
-    const int TOTAL_START_STEPS = 8; // 1 step to (122, 16) + 8 steps to (122, 144)
+    int TOTAL_START_STEPS = 0;
     bool startMovementComplete = false;
     bool startSceneInitialized = false;
+    bool startPauseComplete = false;
+    bool movingHorizontally = true;
+    bool lossSceneInitialized = false;
+    int horizontalSteps = 0;
+    int verticalSteps = 0;
 
     Map map;
     Player player(&map);
@@ -58,24 +83,50 @@ int main()
     enemyManager.SetGameState(&gameState);
     player.SetEnemyManager(&enemyManager);
 
-    map.loadFromFile("Assets/Map/test.rmap");
+    sf::Text livesText(font, "");
+    livesText.setCharacterSize(10);
+    livesText.setFillColor(sf::Color::Red);
+    livesText.setPosition(sf::Vector2f(112,16));
+
+    // Load initial map using StageManager
+    std::string mapFile = stageManager.getMapFile(currentStage);
+    if (!mapFile.empty()) {
+        map.loadFromFile(mapFile);
+    }
+    else {
+        std::cerr << "No maps available!" << std::endl;
+        return -1;
+    }
+
     player.Initialise();
     enemyManager.Initialise();
     int const TILE_SIZE = 16;
 
     // - - - - - - - - - - - - Load - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-    // Initialize player at (0, 0)
+    // Initialize player at (-16, 16)
     sf::Vector2f initialPos(-16, 16);
+    sf::Vector2f startPos;
+    const auto& spawns = map.getEntitySpawns();
+    for (const auto& spawn : spawns) {
+        if (spawn.first == '*') {
+            startPos = spawn.second;
+            break;
+        }
+    }
+
+    // Calculate total steps needed
+    float horizontalDistance = abs(startPos.x - (-16));
+    horizontalSteps = static_cast<int>(horizontalDistance / TILE_SIZE);
+    float verticalDistance = startPos.y - 16;
+    verticalSteps = static_cast<int>(verticalDistance / TILE_SIZE);
+    TOTAL_START_STEPS = horizontalSteps + verticalSteps;
+
     player.setPlayerInitialPosition(initialPos);
-    player.SetCreateTunnels(true);
+    player.SetCreateTunnels(false);
     player.Load();
 
-    sf::Vector2f firstTarget(122, 16);
-    firstTarget.x = std::floor(firstTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-    firstTarget.y = std::floor(firstTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-
-    enemyManager.SpawnEnemy(EnemyType::POOKA, sf::Vector2f(144, 144));
+    enemyManager.SpawnEnemiesFromMap();
     map.printInfo();
     startMusic.play();
 
@@ -100,59 +151,113 @@ int main()
         {
             // Initialize start scene on first entry
             if (!startSceneInitialized) {
+                // Recalculate steps in case map changed
+                float horizontalDistance = abs(startPos.x - (-16));
+                horizontalSteps = static_cast<int>(horizontalDistance / TILE_SIZE);
+                float verticalDistance = startPos.y - 16;
+                verticalSteps = static_cast<int>(verticalDistance / TILE_SIZE);
+                TOTAL_START_STEPS = horizontalSteps + verticalSteps;
+
                 // Fully reset player position
-                player.setPosition(initialPos); // Updates both hitbox and sprite
-                player.setPlayerInitialPosition(initialPos); // Update initialPos
-                player.setTargetPosition(initialPos); // Prevent immediate movement
-                player.setIsMoving(false); // Stop any movement
-                player.DetachHarpoon(); // Clear any harpoon
-                player.SetCreateTunnels(true); // Prevent tunnel creation
+                player.setPosition(initialPos);
+                player.setPlayerInitialPosition(initialPos);
+                player.setTargetPosition(initialPos);
+                player.setIsMoving(false);
+                player.DetachHarpoon();
+                player.SetCreateTunnels(false);
+                player.setHealth(1); // Reset health
                 startSceneStep = 0;
                 startMovementComplete = false;
                 startSceneInitialized = true;
                 startDelayTimer = 0.0f;
+                startPauseTimer = 0.0f;
+                startPauseComplete = false;
+                movingHorizontally = true;
+                startMusic.play();
                 std::cout << "START scene initialized: Player reset to (" << initialPos.x << ", " << initialPos.y << ")" << std::endl;
-                // Set first target after reset
-                player.setTargetPosition(firstTarget);
-                std::cout << "START scene: Moving to first target (" << firstTarget.x << ", " << firstTarget.y << ")" << std::endl;
             }
 
             startDelayTimer += deltaTime;
 
-            // Update player movement if not yet complete
-            if (!startMovementComplete) {
+            // Handle initial pause
+            if (!startPauseComplete) {
+                startPauseTimer += deltaTime;
+                if (startPauseTimer >= START_PAUSE_DELAY) {
+                    startPauseComplete = true;
+                    // Set first target based on whether we need horizontal movement
+                    if (horizontalSteps > 0) {
+                        // Move horizontally first
+                        sf::Vector2f nextTarget(-16 + TILE_SIZE, 16);
+                        nextTarget.x = std::floor(nextTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        nextTarget.y = std::floor(nextTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        player.setTargetPosition(nextTarget);
+                        player.SetCreateTunnels(false); // No tunnels on surface
+                        movingHorizontally = true;
+                        startSceneStep = 1;
+                    }
+                    else {
+                        // Go straight to vertical movement
+                        sf::Vector2f nextTarget(startPos.x, 32);
+                        nextTarget.x = std::floor(nextTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        nextTarget.y = std::floor(nextTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        player.setTargetPosition(nextTarget);
+                        player.SetCreateTunnels(true); // Create tunnels when digging
+                        movingHorizontally = false;
+                        startSceneStep = 1;
+                    }
+                    std::cout << "START scene: Pause complete, starting movement" << std::endl;
+                }
+            }
+
+            // Update player movement if pause is complete and movement not yet complete
+            if (startPauseComplete && !startMovementComplete) {
                 player.Update(deltaTime, player.getPlayerPosition());
 
                 // Check if player has reached the current target position
-                if (!player.getIsMoving()) {
-                    if (startSceneStep == 0) {
-                        startSceneStep++;
-                        float nextY = 16 + startSceneStep * TILE_SIZE;
-                        sf::Vector2f nextTarget(122, nextY);
+                if (!player.getIsMoving() && startSceneStep < TOTAL_START_STEPS) {
+                    startSceneStep++;
+
+                    if (movingHorizontally && startSceneStep <= horizontalSteps) {
+                        // Continue horizontal movement
+                        float nextX = -16 + startSceneStep * TILE_SIZE;
+                        sf::Vector2f nextTarget(nextX, 16);
                         nextTarget.x = std::floor(nextTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
                         nextTarget.y = std::floor(nextTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
                         player.setTargetPosition(nextTarget);
-                        std::cout << "START scene: Moving to next grid position (" << nextTarget.x << ", " << nextTarget.y << ")" << std::endl;
+                        std::cout << "START scene: Moving horizontally to (" << nextTarget.x << ", " << nextTarget.y << ")" << std::endl;
                     }
-                    else if (startSceneStep < TOTAL_START_STEPS) {
-                        startSceneStep++;
-                        float nextY = 16 + startSceneStep * TILE_SIZE;
-                        sf::Vector2f nextTarget(122, nextY);
+                    else if (movingHorizontally && startSceneStep > horizontalSteps) {
+                        // Switch to vertical movement
+                        movingHorizontally = false;
+                        player.SetCreateTunnels(true); // Enable tunnels for digging
+                        float nextY = 16 + (startSceneStep - horizontalSteps) * TILE_SIZE;
+                        sf::Vector2f nextTarget(startPos.x, nextY);
                         nextTarget.x = std::floor(nextTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
                         nextTarget.y = std::floor(nextTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
                         player.setTargetPosition(nextTarget);
-                        std::cout << "START scene: Moving to next grid position (" << nextTarget.x << ", " << nextTarget.y << ")" << std::endl;
+                        std::cout << "START scene: Starting vertical movement to (" << nextTarget.x << ", " << nextTarget.y << ")" << std::endl;
                     }
-                    else {
-                        sf::Vector2f finalPos(122, 152);
-                        finalPos.x = std::floor(finalPos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-                        finalPos.y = std::floor(finalPos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
-                        player.setPosition(finalPos); // Ensure sprite and hitbox are set
-                        player.setTargetPosition(finalPos);
-                        startMovementComplete = true;
-                        player.SetCreateTunnels(true); // Re-enable tunnel creation
-                        std::cout << "START scene: Movement complete at (" << finalPos.x << ", " << finalPos.y << ")" << std::endl;
+                    else if (!movingHorizontally) {
+                        // Continue vertical movement
+                        float nextY = 16 + (startSceneStep - horizontalSteps) * TILE_SIZE;
+                        sf::Vector2f nextTarget(startPos.x, nextY);
+                        nextTarget.x = std::floor(nextTarget.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        nextTarget.y = std::floor(nextTarget.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                        player.setTargetPosition(nextTarget);
+                        std::cout << "START scene: Moving down to (" << nextTarget.x << ", " << nextTarget.y << ")" << std::endl;
                     }
+                }
+                else if (!player.getIsMoving() && startSceneStep >= TOTAL_START_STEPS) {
+                    // Movement complete
+                    startMovementComplete = true;
+                    sf::Vector2f finalPos(startPos.x, startPos.y);
+                    finalPos.x = std::floor(finalPos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                    finalPos.y = std::floor(finalPos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
+                    player.setPosition(finalPos);
+                    player.setTargetPosition(finalPos);
+                    player.SetCreateTunnels(true);
+                    std::cout << "START scene: Movement complete at (" << finalPos.x << ", " << finalPos.y << ")" << std::endl;
+                    player.resetTransform();
                 }
             }
 
@@ -171,41 +276,141 @@ int main()
             if (enemyManager.GetAliveEnemyCount() == 0)
             {
                 gameState.setGameState(States::WIN);
+                victory.play();
                 winDelayTimer = 0.0f;
                 std::cout << "All enemies defeated! Transitioning to WIN state" << std::endl;
+            }
+            if (player.getHealth() <= 0)
+            {
+                gameState.setGameState(States::LOSS);
+                lossDelayTimer = 0.0f;
+                lossSceneInitialized = false;
+                std::cout << "Player died! Transitioning to LOSS state" << std::endl;
             }
             break;
         }
         case States::WIN:
         {
             winDelayTimer += deltaTime;
-            player.Update(deltaTime, player.getPlayerPosition()); // Continue updating for win state
+            player.Update(deltaTime, player.getPlayerPosition());
+            player.resetTransform();
             if (winDelayTimer >= WIN_DELAY)
             {
-                // Clean up and prepare for restart
-                enemyManager.ClearAllEnemies();
-                enemyManager.SpawnEnemy(EnemyType::POOKA, sf::Vector2f(144, 144));
+                // Advance to next stage
+                currentStage++;
 
-                // Fully reset player state
-                player.setPosition(initialPos); // Updates both hitbox and sprite
-                player.setPlayerInitialPosition(initialPos);
-                player.setTargetPosition(initialPos);
-                player.setIsMoving(false);
-                player.DetachHarpoon();
-                player.SetCreateTunnels(false);
+                if (currentStage >= stageManager.getMapCount()) {
+                    currentStage = 0; // Loop back to first stage
+                    std::cout << "All stages completed! Restarting from stage 0" << std::endl;
+                }
+
+                // SET THE CURRENT LEVEL BEFORE LOADING THE MAP - THIS IS THE KEY ADDITION
+                map.setCurrentLevel(currentStage);
+
+                std::string nextMapFile = stageManager.getMapFile(currentStage);
+                if (!nextMapFile.empty()) {
+                    map.loadFromFile(nextMapFile);
+                    std::cout << "Loaded stage " << currentStage << ": " << nextMapFile << std::endl;
+                }
+                else {
+                    std::cerr << "Failed to load stage " << currentStage << std::endl;
+                    currentStage = 0;
+                    map.setCurrentLevel(currentStage); // Also set level for fallback
+                    map.loadFromFile(stageManager.getMapFile(currentStage));
+                }
+
+                enemyManager.ClearAllEnemies();
+                enemyManager.SpawnEnemiesFromMap();
+
+                // Update spawn position for new map
+                const auto& spawns = map.getEntitySpawns();
+                for (const auto& spawn : spawns) {
+                    if (spawn.first == '*') {
+                        startPos = spawn.second;
+                        break;
+                    }
+                }
 
                 gameState.setGameState(States::START);
-                startDelayTimer = 0.0f;
-                startSceneInitialized = false;
-                startMusic.play();
-                std::cout << "Restarting stage, transitioning to START state" << std::endl;
+                std::cout << "Stage " << currentStage << " started" << std::endl;
             }
             break;
         }
+        case States::LOSS:
+        {
+            // Initialize loss scene on first entry
+            if (!lossSceneInitialized) {
+                // Decrement lives ONCE when entering LOSS state
+                player.setLives(player.getLives() - 1);
+
+                // Play appropriate music based on lives remaining AFTER decrementing
+                if (player.getLives() > 0) {
+                    lossMusic.play();
+                    std::cout << "Player died! Lives remaining: " << player.getLives() << std::endl;
+                }
+                else {
+                    noLivesMusic.play();
+                    std::cout << "Player died! No lives remaining. Game Over!" << std::endl;
+                }
+
+                lossSceneInitialized = true;
+                lossDelayTimer = 0.0f;
+            }
+
+            lossDelayTimer += deltaTime;
+
+            // Continue updating player to show death animation
+            player.Update(deltaTime, player.getPlayerPosition());
+
+            if (lossDelayTimer >= LOSS_DELAY) {
+                if (player.getLives() <= 0) {
+                    // Game over - restart from stage 0
+                    noLivesMusic.play();
+                    currentStage = 0;
+                    map.setCurrentLevel(currentStage);
+
+                    std::string firstMapFile = stageManager.getMapFile(currentStage);
+                    if (!firstMapFile.empty()) {
+                        map.loadFromFile(firstMapFile);
+                    }
+
+                    enemyManager.ClearAllEnemies();
+                    enemyManager.SpawnEnemiesFromMap();
+
+                    // Update spawn position for first map
+                    const auto& spawns = map.getEntitySpawns();
+                    for (const auto& spawn : spawns) {
+                        if (spawn.first == '*') {
+                            startPos = spawn.second;
+                            break;
+                        }
+                    }
+
+                    // Reset lives for new game
+                    player.setLives(3);
+                    std::cout << "Game Over - Restarting from Stage 0 with 3 lives" << std::endl;
+                }
+                else {
+                    // Still have lives - restart current stage
+                    std::cout << "Restarting current stage with " << player.getLives() << " lives remaining" << std::endl;
+                }
+
+                // Stop music and transition to start state
+                lossMusic.stop();
+                noLivesMusic.stop();
+
+                // Reset the loss scene flag for next time
+                lossSceneInitialized = false;
+
+                gameState.setGameState(States::START);
+            }
+            break;
+        }
+        }
+
         if (gameState.getGameState() != previousState)
         {
             previousState = gameState.getGameState();
-        }
         }
 
         // - - - - - - - - - - - - Draw - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -213,6 +418,9 @@ int main()
         map.draw(window);
         player.Draw(window);
         enemyManager.Draw(window);
+        sf::String lives = std::to_string(player.getLives());
+        livesText.setString(lives);
+        window.draw(livesText);
 
         if (gameState.getGameState() == States::START)
         {
@@ -221,6 +429,10 @@ int main()
         else if (gameState.getGameState() == States::WIN)
         {
             window.draw(winText);
+        }
+        else if (gameState.getGameState() == States::LOSS)
+        {
+            window.draw(lossText);
         }
         window.display();
         // - - - - - - - - - - - - Draw - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
