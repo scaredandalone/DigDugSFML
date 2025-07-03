@@ -53,8 +53,6 @@ private:
     //gameplay
 
     sf::Vector2f facingDirection;
-    void updateSpriteOrientation(sf::Vector2f direction);
-
     void startShooting();
     void updateShooting(float deltaTime);
     void stopShooting();

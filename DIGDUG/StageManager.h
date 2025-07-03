@@ -7,6 +7,7 @@ class StageManager
 private:
 	std::vector<std::string> mapFiles;
 	std::string mapDirectory; 
+    int currentStage = 0;
 
 public:
 		StageManager(const std::string& directory = "Assets/Map");
@@ -18,6 +19,9 @@ public:
         int getMapCount() const;
         const std::vector<std::string>& getMapFiles() const;
         void printAvailableMaps() const;
+        void incrementStage();
+        void setCurrentStage(int level);
+        int getCurrentStage() const { return currentStage; }
         
 };
 

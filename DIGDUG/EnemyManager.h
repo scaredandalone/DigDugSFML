@@ -1,48 +1,56 @@
 #pragma once
+#include "Entity.h"
+#include "Map.h"
 #include <vector>
 #include <memory>
-#include <SFML/Graphics.hpp>
-#include "Entity.h"
-#include "Pooka.h"
-#include "Map.h"
-class GameState;
 
 class Player;
+class Rock;
+class GameState;
 
 enum class EnemyType {
     POOKA,
     FYGAR
 };
 
-class EnemyManager
-{
+class EnemyManager {
 private:
-    std::vector<std::shared_ptr<Entity>> enemies;
     Map* gameMap;
     Player* player;
-    GameState* gameState;
+    std::vector<std::shared_ptr<Entity>> enemies;
+    std::vector<std::shared_ptr<Rock>> rocks;
     int maxEnemies;
     int currentEnemyCount;
+    GameState* gameState;
+
+    void RemoveDeadEnemies();
+    void RemoveDestroyedRocks();
+    std::shared_ptr<Entity> CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize);
+    void HandleEnemyCollisions(std::shared_ptr<Entity> collidedEnemy);
 
 public:
-    EnemyManager(Map* map, Player* player, int maxEnemyCount = 10);
+    EnemyManager(Map* map, Player* player, int maxEnemyCount);
     ~EnemyManager();
 
     void Initialise();
     void Update(float deltaTime, sf::Vector2f playerPosition);
     void Draw(sf::RenderWindow& window);
-    void SpawnEnemiesFromMap(); 
+
+    void SpawnEnemiesFromMap();
+    void SpawnRocksFromMap();
     void SpawnEnemy(EnemyType type, sf::Vector2f position);
-    void RemoveDeadEnemies();
+    void SpawnRock(sf::Vector2f position, int textureIndex);
+
     void ClearAllEnemies();
+    void ClearAllRocks();
 
-    std::shared_ptr<Entity> CheckCollisionWithPlayer(sf::Vector2f playerPosition, sf::Vector2f playerSize);
-    void HandleEnemyCollisions();
+    void KillEnemy(std::shared_ptr<Entity> enemy);
+    void KillAllEnemiesAt(sf::Vector2f position, float radius);
 
-    int GetEnemyCount() const { return enemies.size(); }
-    int GetAliveEnemyCount() const;
+    void RemoveRock(std::shared_ptr<Rock> rock);
+
     const std::vector<std::shared_ptr<Entity>>& GetEnemies() const { return enemies; }
-
-    void SetMaxEnemies(int max) { maxEnemies = max; }
-    void SetGameState(GameState* state) { gameState = state; }
+    const std::vector<std::shared_ptr<Rock>>& GetRocks() const { return rocks; }
+    int GetEnemyCount() const { return currentEnemyCount; }
+    void SetGameState(GameState* gs) { gameState = gs; }
 };

@@ -4,6 +4,8 @@
 #include <string>
 #include <map>
 
+
+
 class Map {
 private:
     static const int TILE_SIZE = 16;
@@ -19,11 +21,19 @@ private:
     std::map<char, int> charToTileType;
     std::map<int, int> tileTypeToTexture;  // Maps tile type to texture index
     std::vector<std::pair<char, sf::Vector2f>> entitySpawns;
+
+    // Add this to store rock spawn info
+    struct RockSpawnInfo {
+        sf::Vector2f position;
+        int textureIndex;
+    };
+    std::vector<RockSpawnInfo> rockSpawns; // New member to store rock spawn data
+
     int currentLevel;
 
     void buildTiles();
     void setupTileMappings();
-    void setupTextureMapping();  
+    void setupTextureMapping();
 
 public:
     Map();
@@ -41,5 +51,6 @@ public:
     void printInfo();
 
     const std::vector<std::pair<char, sf::Vector2f>>& getEntitySpawns() const { return entitySpawns; }
+    const std::vector<RockSpawnInfo>& getRockSpawns() const { return rockSpawns; }
     void setCurrentLevel(int level);
 };

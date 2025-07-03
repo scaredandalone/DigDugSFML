@@ -6,7 +6,7 @@
 using EntityID = uint32_t;
 constexpr EntityID INVALID_ENTITY = 0;
 
-enum class EntityType { PLAYER, POOKA };
+enum class EntityType { PLAYER, POOKA, ROCK };
 
 class Map;
 
@@ -46,6 +46,7 @@ public:
     sf::Vector2f getPosition() const { return hitbox.getPosition(); }
     bool getIsMoving() const { return isMoving; }
     bool isActive() const { return isAlive; }
+    void setActive(bool y) {isAlive = y; }
 
     static EntityID nextID;
     static EntityID CreateEntity() { return ++nextID; }

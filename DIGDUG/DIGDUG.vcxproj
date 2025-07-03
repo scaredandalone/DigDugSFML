@@ -144,6 +144,7 @@
     <ClCompile Include="Math.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Pooka.cpp" />
+    <ClCompile Include="Rock.cpp" />
     <ClCompile Include="SFX.cpp" />
     <ClCompile Include="StageManager.cpp" />
   </ItemGroup>
@@ -157,6 +158,7 @@
     <ClInclude Include="Math.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Pooka.h" />
+    <ClInclude Include="Rock.h" />
     <ClInclude Include="SFX.h" />
     <ClInclude Include="StageManager.h" />
   </ItemGroup>

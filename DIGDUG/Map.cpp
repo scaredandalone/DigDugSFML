@@ -1,3 +1,4 @@
+
 #include "Map.h"
 #include "StageManager.h"
 #include <fstream>
@@ -25,6 +26,7 @@ void Map::setupTileMappings() {
     charToTileType['5'] = 5;  // Dirt type 4
     charToTileType['P'] = 0;  // Enemy spawn
     charToTileType['*'] = 0;  // Player spawn
+    charToTileType['R'] = 0;  // Rock will be placed on an empty tile initially
 }
 
 void Map::setupTextureMapping() {
@@ -74,6 +76,7 @@ bool Map::loadFromFile(const std::string& filename) {
     std::string line;
     int row = 0;
     entitySpawns.clear();
+    rockSpawns.clear(); // Clear previous rock spawns
 
     while (std::getline(file, line) && row < TILES_Y) {
         for (int col = 0; col < TILES_X && col < static_cast<int>(line.length()); col++) {
@@ -83,6 +86,28 @@ bool Map::loadFromFile(const std::string& filename) {
                 if (c == 'P' || c == '*') {
                     sf::Vector2f spawnPos(col * TILE_SIZE + TILE_SIZE / 2.0f, row * TILE_SIZE + TILE_SIZE / 2.0f);
                     entitySpawns.emplace_back(c, spawnPos);
+                }
+                else if (c == 'R') {
+                    // Handle Rock spawn: get texture from tile to the right
+                    sf::Vector2f spawnPos(col * TILE_SIZE + TILE_SIZE / 2.0f, row * TILE_SIZE + TILE_SIZE / 2.0f);
+                    RockSpawnInfo rockInfo;
+                    rockInfo.position = spawnPos;
+
+                    // Determine texture index from the tile to the right
+                    if (col + 1 < TILES_X) {
+                        char tileRightChar = line[col + 1];
+                        int tileRightType = 0;
+                        if (charToTileType.find(tileRightChar) != charToTileType.end()) {
+                            tileRightType = charToTileType[tileRightChar];
+                        }
+                        rockInfo.textureIndex = tileTypeToTexture[tileRightType];
+                    }
+                    else {
+                        // Default to a specific texture if no tile to the right or out of bounds
+                        rockInfo.textureIndex = tileTypeToTexture[1]; // Example: Use surface texture
+                    }
+                    rockSpawns.push_back(rockInfo);
+                    tileData[row][col] = 0; // The 'R' tile itself is considered empty space
                 }
             }
             else {
@@ -105,6 +130,7 @@ bool Map::loadFromFile(const std::string& filename) {
     buildTiles();
     std::cout << "Map loaded successfully from " << filename << std::endl;
     std::cout << "Found " << entitySpawns.size() << " entity spawns" << std::endl;
+    std::cout << "Found " << rockSpawns.size() << " rock spawns" << std::endl;
     return true;
 }
 

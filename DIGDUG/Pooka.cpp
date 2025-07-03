@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <cmath>
 #include <vector>
@@ -313,7 +314,7 @@ void Pooka::Inflate() {
                 isAlive = false;
                 std::cout << "Pooka fully inflated!" << std::endl;
                 DetachHarpoon();
-                // dont detach harpoon here, when you add a death animation/effect
+                // dont detach harpoon here, if you a death animation/effect
             }
         }
     }

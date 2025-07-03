@@ -99,3 +99,27 @@ void StageManager::printAvailableMaps() const {
         std::cout << "Level " << i << ": " << mapFiles[i] << std::endl;
     }
 }
+
+void StageManager::incrementStage()
+{
+    
+    if (currentStage >= getMapCount()) {
+        currentStage -= 1;
+        std::cout << "All stages completed! Restarting from the last stage" << std::endl;
+        return;
+    }
+    else if (currentStage < getMapCount()){
+        currentStage++;
+    }
+}
+
+void StageManager::setCurrentStage(int level)
+{
+    if (level <= getMapCount()) {
+        currentStage = level;
+    }
+    else {
+        std::cout << "setCurrentStage in stagemanager failed, level does not exist in map file." << std::endl;
+    }
+
+}

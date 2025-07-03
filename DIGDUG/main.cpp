@@ -3,6 +3,7 @@
 #include "Player.h"
 #include "Map.h"
 #include "Pooka.h"
+#include "Rock.h"
 #include "EnemyManager.h"
 #include "GameState.h"
 #include "StageManager.h"
@@ -24,7 +25,6 @@ int main()
 
     // Initialize StageManager
     StageManager stageManager("Assets/Map/");
-    int currentStage = 0;
 
     // Create text objects
     sf::Text startText(font, "");
@@ -89,7 +89,7 @@ int main()
     livesText.setPosition(sf::Vector2f(112,16));
 
     // Load initial map using StageManager
-    std::string mapFile = stageManager.getMapFile(currentStage);
+    std::string mapFile = stageManager.getMapFile(stageManager.getCurrentStage());
     if (!mapFile.empty()) {
         map.loadFromFile(mapFile);
     }
@@ -127,6 +127,7 @@ int main()
     player.Load();
 
     enemyManager.SpawnEnemiesFromMap();
+    enemyManager.SpawnRocksFromMap();
     map.printInfo();
     startMusic.play();
 
@@ -273,7 +274,7 @@ int main()
         {
             player.Update(deltaTime, player.getPlayerPosition());
             enemyManager.Update(deltaTime, player.getPlayerPosition());
-            if (enemyManager.GetAliveEnemyCount() == 0)
+            if (enemyManager.GetEnemyCount() == 0)
             {
                 gameState.setGameState(States::WIN);
                 victory.play();
@@ -297,30 +298,24 @@ int main()
             if (winDelayTimer >= WIN_DELAY)
             {
                 // Advance to next stage
-                currentStage++;
+                stageManager.incrementStage();
+                map.setCurrentLevel(stageManager.getCurrentStage());
 
-                if (currentStage >= stageManager.getMapCount()) {
-                    currentStage = 0; // Loop back to first stage
-                    std::cout << "All stages completed! Restarting from stage 0" << std::endl;
-                }
-
-                // SET THE CURRENT LEVEL BEFORE LOADING THE MAP - THIS IS THE KEY ADDITION
-                map.setCurrentLevel(currentStage);
-
-                std::string nextMapFile = stageManager.getMapFile(currentStage);
+                std::string nextMapFile = stageManager.getMapFile(stageManager.getCurrentStage());
                 if (!nextMapFile.empty()) {
                     map.loadFromFile(nextMapFile);
-                    std::cout << "Loaded stage " << currentStage << ": " << nextMapFile << std::endl;
+                    std::cout << "Loaded stage " << stageManager.getCurrentStage() << ": " << nextMapFile << std::endl;
                 }
                 else {
-                    std::cerr << "Failed to load stage " << currentStage << std::endl;
-                    currentStage = 0;
-                    map.setCurrentLevel(currentStage); // Also set level for fallback
-                    map.loadFromFile(stageManager.getMapFile(currentStage));
+                    std::cerr << "Failed to load stage " << stageManager.getCurrentStage() << std::endl;
+                    map.setCurrentLevel(stageManager.getCurrentStage()); 
+                    map.loadFromFile(stageManager.getMapFile(stageManager.getCurrentStage()));
                 }
 
                 enemyManager.ClearAllEnemies();
+                enemyManager.ClearAllRocks();
                 enemyManager.SpawnEnemiesFromMap();
+                enemyManager.SpawnRocksFromMap();
 
                 // Update spawn position for new map
                 const auto& spawns = map.getEntitySpawns();
@@ -332,7 +327,7 @@ int main()
                 }
 
                 gameState.setGameState(States::START);
-                std::cout << "Stage " << currentStage << " started" << std::endl;
+                std::cout << "Stage " << stageManager.getCurrentStage() << " started" << std::endl;
             }
             break;
         }
@@ -366,16 +361,18 @@ int main()
                 if (player.getLives() <= 0) {
                     // Game over - restart from stage 0
                     noLivesMusic.play();
-                    currentStage = 0;
-                    map.setCurrentLevel(currentStage);
+                    stageManager.setCurrentStage(0);
+                    map.setCurrentLevel(stageManager.getCurrentStage());
 
-                    std::string firstMapFile = stageManager.getMapFile(currentStage);
+                    std::string firstMapFile = stageManager.getMapFile(stageManager.getCurrentStage());
                     if (!firstMapFile.empty()) {
                         map.loadFromFile(firstMapFile);
                     }
 
                     enemyManager.ClearAllEnemies();
+                    enemyManager.ClearAllRocks();
                     enemyManager.SpawnEnemiesFromMap();
+                    enemyManager.SpawnRocksFromMap();
 
                     // Update spawn position for first map
                     const auto& spawns = map.getEntitySpawns();

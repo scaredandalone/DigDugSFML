@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <cmath>
 #include "Player.h"
@@ -9,9 +10,6 @@ health(1), lives(1), score(0), speed(40.0f), sprite(texture),
 isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f),
 currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture), map(gameMap), createTunnels(true),
 harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND), MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC), harpoonTimer(0)
- 
- 
- 
 {
 }
 
