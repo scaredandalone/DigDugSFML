@@ -4,11 +4,11 @@
 #include "Entity.h"
 #include "Map.h"
 #include "Animation.h"
-#include "EnemyManager.h"
 #include "SFX.h"
 
 class GameState;
 class EnemyManager;
+class ScoreManager;
 
 class Player : public Entity {
 private:
@@ -25,9 +25,16 @@ private:
     SFX MovementMusic;
     SFX harpoonSound;
 
+    SFX RareMovementMusic;
+    bool isPlayingRareMusic;
+    static constexpr float RARE_MUSIC_CHANCE = 0.1f; // 10% chance of rare movement music after normal music ends.
+
     // enemy manager
     EnemyManager* enemyManager = nullptr;
     std::shared_ptr<Entity> harpoonedEnemy = nullptr;
+
+    // Score manager - Add this
+    ScoreManager* scoreManager= nullptr;
 
     //shooting
     bool isShooting;
@@ -57,11 +64,19 @@ private:
     void updateShooting(float deltaTime);
     void stopShooting();
     void createTunnel(sf::Vector2f position);
+
+    void PopEnemyAndScore(std::shared_ptr<Entity> enemy);
+
     // gamestate
     GameState* gameState = nullptr;
     // death
     bool deathAnimationComplete = false;
     bool deathAnimationStarted = false;
+
+    void startMovementMusic();
+    void stopMovementMusic();
+    void updateMovementMusic(float deltatime);
+
 public:
     Player(Map* gameMap);
     void Initialise() override;
@@ -70,10 +85,13 @@ public:
     void Draw(sf::RenderWindow& window) override;
     void shoot();
     void DetachHarpoon() override;
-    void setPosition(sf::Vector2f pos) override; 
-    bool getInflationStatus() override {return 0;}
+    void setPosition(sf::Vector2f pos) override;
+    bool getInflationStatus() override { return 0; }
 
+    // set managers
     void SetEnemyManager(EnemyManager* manager) { enemyManager = manager; }
+    void SetScoreManager(ScoreManager* manager) { scoreManager = manager; }
+
     sf::Vector2f getPlayerPosition() { return sprite.getPosition(); }
     void setPlayerInitialPosition(sf::Vector2f initialpos) {
         initialPos.x = ((int)initialpos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2.0f;
@@ -85,9 +103,12 @@ public:
     int getScore() const { return score; }
 
     void addScore(int points) { score += points; }
+    void clearScore() { score = 0; }
     void SetGameState(GameState* state) { gameState = state; }
     void SetCreateTunnels(bool enable) { createTunnels = enable; }
     void setIsMoving(bool state) { isMoving = state; }
+
+    ScoreManager* getScoreManager() const { return scoreManager; }
 
     void updateStartState(float deltaTime, sf::Vector2f playerPosition);
     void updateGameState(float deltaTime, sf::Vector2f playerPosition);
@@ -99,8 +120,7 @@ public:
         sprite.setScale({ 1, 1 });
     }
     void setHealth(int hp) { health = hp; };
-    int getLives() { return lives;}
+    int getLives() const { return lives; }
     void setLives(int life) { lives = life; }
     void resetDeathAnimation();
-
 };

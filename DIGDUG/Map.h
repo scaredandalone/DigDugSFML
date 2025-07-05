@@ -21,13 +21,12 @@ private:
     std::map<char, int> charToTileType;
     std::map<int, int> tileTypeToTexture;  // Maps tile type to texture index
     std::vector<std::pair<char, sf::Vector2f>> entitySpawns;
-
-    // Add this to store rock spawn info
+    // store rock spawn info
     struct RockSpawnInfo {
         sf::Vector2f position;
         int textureIndex;
     };
-    std::vector<RockSpawnInfo> rockSpawns; // New member to store rock spawn data
+    std::vector<RockSpawnInfo> rockSpawns;
 
     int currentLevel;
 

@@ -6,12 +6,13 @@
 
 EntityID Entity::nextID = 0;
 
-Entity::Entity(EntityType t, bool alive, sf::Vector2i size)
-    : type(t), isAlive(alive), size(size), isMoving(false), targetPosition(0, 0) {
+Entity::Entity(EntityType t, bool alive, sf::Vector2i size, int scoreawarded)
+    : type(t), isAlive(alive), size(size), isMoving(false), targetPosition(0, 0), scoreAwarded(scoreawarded) {
     hitbox.setSize(sf::Vector2f(size.x -6, size.y-6));
     hitbox.setFillColor(sf::Color::Transparent);
     hitbox.setOutlineColor(sf::Color::Red);
-    hitbox.setOutlineThickness(1);
+    hitbox.setOutlineThickness(1)
+    ;
 }
 
 Entity::~Entity() {
@@ -94,7 +95,6 @@ void Entity::DetachHarpoon() {
 }
 
 void Entity::Inflate() {
-    // Base implementation
 }
 
 bool Entity::isHarpoonAttached() const {

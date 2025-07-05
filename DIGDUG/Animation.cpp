@@ -8,9 +8,11 @@ Animation::Animation(sf::Texture* texture, sf::Vector2u imageCount, float switch
     this->isLooping = shouldLoop;
     totalTime = 0.0f;
     currentImage.x = 0;
+    currentImage.y = 0;
     animationComplete = false;
     uvRect.size.x = sizeX;
     uvRect.size.y = sizeY;
+    uvRect.position = sf::Vector2i(0, 0);
     // debug std::cout << "Animation created - imageCount: " << imageCount.x << "x" << imageCount.y
     // debug     << ", switchTime: " << switchTime << ", size: " << sizeX << "x" << sizeY << ", looping: " << shouldLoop << std::endl;
 }
@@ -59,6 +61,7 @@ bool Animation::IsAnimationComplete() const
 void Animation::ResetAnimation()
 {
     currentImage.x = 0;
+    currentImage.y = 0;
     totalTime = 0.0f;
     animationComplete = false;
 }

@@ -2,11 +2,12 @@
 #include <iostream>
 
 Game::Game()
-    : window(sf::VideoMode({ 224, 270 }), "DIG DUG", sf::Style::Default, sf::State::Windowed)
+    : window(sf::VideoMode({ 448, 540 }), "DIG DUG", sf::Style::Default, sf::State::Windowed)
     , winDelayTimer(0.0f)
     , startDelayTimer(0.0f)
     , startPauseTimer(0.0f)
     , lossDelayTimer(0.0f)
+    , highScoreTimer(0.0f)
     , startSceneStep(0)
     , TOTAL_START_STEPS(0)
     , startMovementComplete(false)
@@ -14,6 +15,7 @@ Game::Game()
     , startPauseComplete(false)
     , movingHorizontally(true)
     , lossSceneInitialized(false)
+    , highScoreSceneInitialized(false)
     , horizontalSteps(0)
     , verticalSteps(0)
     , initialPos(-16, 16)
@@ -22,10 +24,12 @@ Game::Game()
     , lossMusic("Assets/Sounds/Music/loss.mp3", SFX::Type::MUSIC)
     , noLivesMusic("Assets/Sounds/Music/nolivesleft.mp3", SFX::Type::MUSIC)
     , victory("Assets/Sounds/Music/success.mp3", SFX::Type::MUSIC)
-    , livesText(font)
+    , highScoreMusic("Assets/Sounds/Music/highscore.mp3", SFX::Type::MUSIC)
     , lossText(font)
     , startText(font)
     , winText(font)
+    , highScoreText(font)
+    , newHighScoreText(font)
 {
 }
 
@@ -34,18 +38,19 @@ bool Game::initialize()
     if (!loadAssets()) {
         return false;
     }
+    sf::View view(sf::FloatRect({ 0, 0 }, { 224, 270 }));
+    window.setView(view);
 
     initializeGameObjects();
     initializeUI();
     initializeAudio();
 
-    if (!loadInitialMap()) {  // Changed from != 0 to !
+    if (!loadInitialMap()) {
         return false;
     }
 
     calculateStartMovement();
 
-    // Initialize game objects
     player->Initialise();
     enemyManager->Initialise();
     player->setPlayerInitialPosition(initialPos);
@@ -64,7 +69,7 @@ bool Game::initialize()
 
 bool Game::loadAssets()
 {
-    if (!font.openFromFile("Assets/Fonts/arial.ttf")) {
+    if (!font.openFromFile("Assets/Fonts/digdugfont.otf")) {
         std::cerr << "Failed to load font!" << std::endl;
         return false;
     }
@@ -79,8 +84,12 @@ void Game::initializeGameObjects()
     gameState = std::make_unique<GameState>();
     stageManager = std::make_unique<StageManager>("Assets/Map/");
     enemyManager = std::make_unique<EnemyManager>(map.get(), player.get(), 10);
+    scoreboard = std::make_unique<Scoreboard>(sf::Vector2f(0, 240), 8);
+
+    scoreManager = std::make_unique<ScoreManager>(player.get());
 
     player->SetGameState(gameState.get());
+    player->SetScoreManager(scoreManager.get());
     enemyManager->SetGameState(gameState.get());
     player->SetEnemyManager(enemyManager.get());
 }
@@ -90,36 +99,50 @@ void Game::initializeUI()
     startText = sf::Text(font, "Stage Start");
     startText.setCharacterSize(10);
     startText.setFillColor(sf::Color::Yellow);
-    startText.setPosition(sf::Vector2f(112, 50));
+    startText.setPosition(sf::Vector2f(112, 64));
+    sf::FloatRect startTextBounds = startText.getLocalBounds();
+    startText.setOrigin(sf::Vector2f(startTextBounds.size.x / 2.0f, 0));
 
     winText = sf::Text(font, "Stage Clear");
     winText.setCharacterSize(10);
     winText.setFillColor(sf::Color::Yellow);
-    winText.setPosition(sf::Vector2f(112, 50));
+    winText.setPosition(sf::Vector2f(112, 64));
+    sf::FloatRect winTextBounds = winText.getLocalBounds();
+    winText.setOrigin(sf::Vector2f(winTextBounds.size.x / 2.0f, 0));
 
     lossText = sf::Text(font, "Game Over");
     lossText.setCharacterSize(10);
     lossText.setFillColor(sf::Color::Red);
-    lossText.setPosition(sf::Vector2f(112, 50));
+    lossText.setPosition(sf::Vector2f(112, 64));
+    sf::FloatRect lossTextBounds = lossText.getLocalBounds();
+    lossText.setOrigin(sf::Vector2f(lossTextBounds.size.x / 2.0f, 0));
 
-    livesText = sf::Text(font, "");
-    livesText.setCharacterSize(10);
-    livesText.setFillColor(sf::Color::Red);
-    livesText.setPosition(sf::Vector2f(112, 16));
+    highScoreText = sf::Text(font, "HIGH SCORE");
+    highScoreText.setCharacterSize(8);
+    highScoreText.setFillColor(sf::Color::Yellow);
+    highScoreText.setPosition(sf::Vector2f(112, 0));
+    sf::FloatRect highScoreBounds = highScoreText.getLocalBounds();
+    highScoreText.setOrigin(sf::Vector2f(highScoreBounds.size.x / 2.0f, 0));
+
+    scoreboard->loadFont("Assets/Fonts/digdugfont.otf");
+    scoreboard->loadPlayerTexture("Assets/Sprites/Player/spritesheet1.png");
+    scoreboard->setTextColor(sf::Color::Red);
+    scoreboard->setBackgroundColor(sf::Color(0, 0, 0, 0));
 }
 
 void Game::initializeAudio()
 {
     victory.setVolume(30);
 
-
     startMusic.setLoop(false);
     lossMusic.setLoop(false);
     noLivesMusic.setLoop(false);
+    highScoreMusic.setLoop(false);
 
     startMusic.setVolume(35);
     lossMusic.setVolume(35);
     noLivesMusic.setVolume(35);
+    highScoreMusic.setVolume(35);
 }
 
 bool Game::loadInitialMap()
@@ -202,7 +225,16 @@ void Game::update(float deltaTime)
     case States::LOSS:
         updateLossState(deltaTime);
         break;
+    case States::HIGHSCORE:
+        updateHighScoreState(deltaTime);
+        break;
     }
+
+    scoreboard->update(*player, *stageManager);
+    scoreManager->UpdateNewHighScoreTimer(deltaTime); // Update new high score timer
+    highScoreText.setString("HIGHSCORE " + std::to_string(scoreManager->GetHighScore())); // Update high score text
+    sf::FloatRect highScoreBounds = highScoreText.getLocalBounds();
+    highScoreText.setOrigin(sf::Vector2f(highScoreBounds.size.x / 2, 0)); // Re-center after text update
 
     if (gameState->getGameState() != previousState) {
         previousState = gameState->getGameState();
@@ -351,7 +383,6 @@ void Game::updateLossState(float deltaTime)
 {
     if (!lossSceneInitialized) {
         player->setLives(player->getLives() - 1);
-
         if (player->getLives() > 0) {
             lossMusic.play();
             std::cout << "Player died! Lives remaining: " << player->getLives() << std::endl;
@@ -360,7 +391,6 @@ void Game::updateLossState(float deltaTime)
             noLivesMusic.play();
             std::cout << "Player died! No lives remaining. Game Over!" << std::endl;
         }
-
         lossSceneInitialized = true;
         lossDelayTimer = 0.0f;
     }
@@ -368,19 +398,75 @@ void Game::updateLossState(float deltaTime)
     lossDelayTimer += deltaTime;
     player->Update(deltaTime, player->getPlayerPosition());
 
-    if (lossDelayTimer >= LOSS_DELAY) {
+    // Use different delay based on whether player has lives left
+    float delayToUse = (player->getLives() <= 0) ? NOLIVES_DELAY : LOSS_DELAY;
+
+    if (lossDelayTimer >= delayToUse) {
         if (player->getLives() <= 0) {
-            restartFromFirstStage();
+            // Update the high score and check if it's new
+            int oldHighScore = scoreManager->GetHighScore();
+            scoreManager->UpdateHighScore();
+            bool newHighScore = (scoreManager->GetHighScore() > oldHighScore);
+            if (newHighScore) {
+                // Transition to high score scene
+                gameState->setGameState(States::HIGHSCORE);
+                initializeHighScoreScene();
+                std::cout << "New high score achieved! Transitioning to HIGHSCORE state" << std::endl;
+            }
+            else {
+                // Normal game over flow
+                restartFromFirstStage();
+                scoreManager->ResetScore();
+                gameState->setGameState(States::START);
+            }
         }
         else {
             restartCurrentStage();
+            gameState->setGameState(States::START);
         }
-
         lossMusic.stop();
         noLivesMusic.stop();
         lossSceneInitialized = false;
-        gameState->setGameState(States::START);
     }
+}
+
+void Game::updateHighScoreState(float deltaTime)
+{
+    if (!highScoreSceneInitialized) {
+        initializeHighScoreScene();
+    }
+
+    highScoreTimer += deltaTime;
+
+    if (highScoreTimer >= HIGHSCORE_DELAY) {
+        highScoreMusic.stop();
+        highScoreSceneInitialized = false;
+
+        // After high score scene, restart from first stage
+        restartFromFirstStage();
+        scoreManager->ResetScore();
+        gameState->setGameState(States::START);
+
+        std::cout << "High score scene complete! Restarting game" << std::endl;
+    }
+}
+
+void Game::initializeHighScoreScene()
+{
+    highScoreTimer = 0.0f;
+    highScoreSceneInitialized = true;
+
+    // Stop any other music and play high score music
+    lossMusic.stop();
+    noLivesMusic.stop();
+    highScoreMusic.play();
+
+    // Ensure the score manager is showing the new high score
+    scoreManager->ShouldShowNewHighScore();
+
+    std::cout << "High score scene initialized" << std::endl;
+    std::cout << "New high score text: " << scoreManager->GetNewHighScoreText() << std::endl;
+    drawHighscoreScene();
 }
 
 void Game::loadNextStage()
@@ -414,7 +500,6 @@ void Game::restartCurrentStage()
 
 void Game::restartFromFirstStage()
 {
-    noLivesMusic.play();
     stageManager->setCurrentStage(0);
     map->setCurrentLevel(stageManager->getCurrentStage());
 
@@ -433,17 +518,36 @@ void Game::restartFromFirstStage()
     std::cout << "Game Over - Restarting from Stage 0 with 3 lives" << std::endl;
 }
 
+
+void Game::drawHighscoreScene() {
+  sf::Text newHighScoreText(font, scoreManager->GetNewHighScoreText());
+  newHighScoreText.setCharacterSize(12);
+
+
+  static sf::Clock flashClock;
+  float flashInterval = 0.25f;
+  bool isYellow = fmod(flashClock.getElapsedTime().asSeconds(), flashInterval * 2) < flashInterval;
+
+  // Alternate between red and yellow
+  newHighScoreText.setFillColor(isYellow ? sf::Color::Yellow : sf::Color::Red);
+
+  newHighScoreText.setPosition(sf::Vector2f(112, 135)); // Center of screen
+  sf::FloatRect newHighScoreBounds = newHighScoreText.getLocalBounds();
+  newHighScoreText.setOrigin(sf::Vector2f(newHighScoreBounds.size.x / 2, newHighScoreBounds.size.y / 2));
+  window.draw(newHighScoreText);
+  window.draw(highScoreText);
+}
+
 void Game::render()
 {
     window.clear(sf::Color::Black);
-
+    // Render normal game elements for all other states
     map->draw(window);
     player->Draw(window);
     enemyManager->Draw(window);
 
-    sf::String lives = std::to_string(player->getLives());
-    livesText.setString(lives);
-    window.draw(livesText);
+    scoreboard->render(window);
+    window.draw(highScoreText); // Always draw high score
 
     switch (gameState->getGameState()) {
     case States::START:
@@ -456,17 +560,19 @@ void Game::render()
         window.draw(lossText);
         break;
     case States::GAME:
-        // No additional UI for game state
+        break;
+    case States::HIGHSCORE:
+        drawHighscoreScene();
+        if(highScoreTimer > HIGHSCORE_DELAY)
         break;
     }
-
     window.display();
 }
 
 void Game::cleanup()
 {
-    // Any cleanup needed when the game ends
     startMusic.stop();
     lossMusic.stop();
     noLivesMusic.stop();
+    highScoreMusic.stop();
 }

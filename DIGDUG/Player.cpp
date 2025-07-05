@@ -1,15 +1,19 @@
-
 #include <iostream>
 #include <cmath>
 #include "Player.h"
 #include "Math.h"
 #include "GameState.h"
+#include "ScoreManager.h"  
+#include "EnemyManager.h"
 
-Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sf::Vector2i(16, 16)),
-health(1), lives(1), score(0), speed(40.0f), sprite(texture),
+Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sf::Vector2i(16, 16), 0),
+health(1), lives(1), score(2000), speed(40.0f), sprite(texture),
 isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f),
 currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture), map(gameMap), createTunnels(true),
-harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND), MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC), harpoonTimer(0)
+harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND),
+MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC),
+RareMovementMusic("Assets/Sounds/Music/walkingrare.mp3", SFX::Type::MUSIC),
+harpoonTimer(0), isPlayingRareMusic(false)
 {
 }
 
@@ -43,8 +47,13 @@ void Player::Load() {
     animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y, true);
 
     MovementMusic.setVolume(30);
-    MovementMusic.setLoop(true);
+    MovementMusic.setLoop(false);
     harpoonSound.setVolume(10);
+
+   
+    RareMovementMusic.setVolume(30);
+    RareMovementMusic.setLoop(false);
+
 }
 
 void Player::setPosition(sf::Vector2f pos) {
@@ -58,6 +67,79 @@ void Player::setPosition(sf::Vector2f pos) {
     // Update sprite position to match
     sprite.setPosition(pos);
     std::cout << "Player position set to (" << pos.x << ", " << pos.y << ")" << std::endl;
+}
+
+void Player::startMovementMusic() {
+    if (!isPlayingRareMusic) {
+        // Start or resume normal music
+        if (MovementMusic.isPlaying() == true) {
+            MovementMusic.play(); // Resume from where it was paused
+            std::cout << "Resumed normal movement music" << std::endl;
+        }
+        else {
+            MovementMusic.play(); // Start from beginning
+            std::cout << "Started normal movement music" << std::endl;
+        }
+    }
+    else {
+        // Start or resume rare music
+        if (RareMovementMusic.isPlaying() == true) {
+            RareMovementMusic.play(); // Resume from where it was paused
+            std::cout << "Resumed rare movement music" << std::endl;
+        }
+        else {
+            RareMovementMusic.play(); // Start from beginning
+            std::cout << "Started rare movement music" << std::endl;
+        }
+    }
+}
+void Player::stopMovementMusic() {
+    if (MovementMusic.isPlaying() == true) {
+        MovementMusic.pause();
+        std::cout << "Paused normal movement music" << std::endl;
+    }
+    if (RareMovementMusic.isPlaying() == true) {
+        RareMovementMusic.pause();
+        std::cout << "Paused rare movement music" << std::endl;
+    }
+}
+
+void Player::updateMovementMusic(float deltaTime) {
+    if (!isMoving) return; // Only update music logic when moving
+
+    if (isPlayingRareMusic) {
+        // Check if rare music has finished
+        if (RareMovementMusic.isPlaying() == false) {
+            // Rare music finished, switch back to normal
+            isPlayingRareMusic = false;
+            std::cout << "Rare music finished, switching back to normal music" << std::endl;
+
+            // Resume normal music from where it was paused
+            if (MovementMusic.isPlaying() == false) {
+                MovementMusic.play();
+            }
+            else {
+                MovementMusic.play(); // Start from beginning if needed
+            }
+        }
+    }
+    else {
+        // Check if normal music has finished
+        if (MovementMusic.isPlaying() == false) {
+            // Normal music finished, decide what to play next
+            if (static_cast<float>(rand()) / RAND_MAX < RARE_MUSIC_CHANCE) {
+                // Play rare music
+                isPlayingRareMusic = true;
+                RareMovementMusic.play();
+                std::cout << "Normal music finished, switching to rare music" << std::endl;
+            }
+            else {
+                // Loop normal music
+                MovementMusic.play();
+                std::cout << "Normal music finished, looping normal music" << std::endl;
+            }
+        }
+    }
 }
 
 void Player::Update(float deltaTime, sf::Vector2f playerPosition) {
@@ -93,13 +175,19 @@ void Player::Update(float deltaTime, sf::Vector2f playerPosition) {
 }
 
 void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
+    if (MovementMusic.isPlaying() || RareMovementMusic.isPlaying()) {
+        MovementMusic.stop();
+        RareMovementMusic.stop(); 
+        isPlayingRareMusic = false;
+        std::cout << "Music reset in START state" << std::endl;
+    }
     if (deathAnimationStarted) {
         deathAnimationStarted = false;
         animation->ResetAnimation();
         animation->Update(0, deltaTime, sprite);
         animation->SetLooping(true); // Reset to looping for normal animations
     }
-    MovementMusic.stop();
+
     playerPosition = initialPos;
     if (isMoving) {
         // Calculate movement direction based on current position and target
@@ -167,13 +255,39 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
-    // Handle space key for shooting/pumping
+    // Handle movement music
+    updateMovementMusic(deltaTime);
+
     bool spaceCurrentlyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
     if (spaceCurrentlyPressed && !spaceKeyPressed) {
         if (harpoonedEnemy) {
             std::cout << "Pumping harpooned enemy!" << std::endl;
-            harpoonedEnemy->Inflate();
+
+            // Store enemy reference and score BEFORE inflation
+            auto enemyToScore = harpoonedEnemy;
+            bool wasAlive = enemyToScore->isActive();
+
+            // Calculate and award score BEFORE inflating (while enemy is still valid)
+            if (wasAlive && scoreManager) {
+                int enemyScore = enemyToScore->getScoreAwarded();
+                std::cout << "Enemy score before inflation: " << enemyScore << std::endl;
+                scoreManager->OnEnemyKilled(enemyToScore, KillMethod::INFLATION);
+            }
+
+            // Now inflate the enemy
+            enemyToScore->Inflate();
             harpoonSound.play();
+
+            // Check if enemy died from inflation
+            if (wasAlive && !enemyToScore->isActive()) {
+                std::cout << "Enemy died from inflation!" << std::endl;
+                // Score was already awarded above
+
+                // Detach harpoon after inflation
+                DetachHarpoon();
+            }
+
+            // Animation update code...
             animation->currentImage.x++;
             if (animation->currentImage.x >= animation->imageCount.x) {
                 animation->currentImage.x = 0;
@@ -194,11 +308,7 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
     if (isShooting) {
         updateShooting(deltaTime);
     }
-    // --- START MODIFIED LOGIC ---
-    // Check for movement input specifically to detach harpoon, before the main movement block
-    // This uses the same 'movementAttempted' check structure you had, but ensures it runs
-    // even if the player is technically "not moving" due to being harpooned.
-    bool movementAttemptedThisFrame = false; // New flag to track if any movement key was pressed
+    bool movementAttemptedThisFrame = false; 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
         movementAttemptedThisFrame = true;
     }
@@ -218,9 +328,9 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
         return; // Exit update early as player just detached and might start moving next frame
     }
 
-    else if (!isMoving && !isImmobilized && !harpoonedEnemy) { 
+    else if (!isMoving && !isImmobilized && !harpoonedEnemy) {
         sf::Vector2f newTarget = targetPosition;
-        bool movementAttempted = false; 
+        bool movementAttempted = false;
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
             newTarget.x -= TILE_SIZE;
@@ -239,7 +349,7 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
             movementAttempted = true;
         }
 
-  
+
         if (movementAttempted && newTarget != targetPosition && canMoveTo(newTarget, map)) {
             setTargetPosition(newTarget);
         }
@@ -303,24 +413,18 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
-    // Handle movement music
+    // Handle movement music start/stop
     if (isMoving && !wasMoving) {
-        if (MovementMusic.isPlaying() == false) {
-            MovementMusic.play();
-            std::cout << "Started moving - playing music" << std::endl;
-        }
+        startMovementMusic();
     }
     else if (!isMoving && wasMoving) {
-        if (MovementMusic.isPlaying() != false) {
-            MovementMusic.pause();
-            std::cout << "Stopped moving - pausing music" << std::endl;
-        }
+        stopMovementMusic();
     }
 }
 
 void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
     resetTransform();
-    MovementMusic.stop();
+    stopMovementMusic(); 
     animation->Update(0, 0, sprite);
     // Stop any ongoing shooting
     if (isShooting) {
@@ -335,8 +439,8 @@ void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
     // Stop any movement
     isMoving = false;
 
-    // Could add win celebration animations or effects here
-    // For now, just keep the player stationary
+    // add win celebrations or animations here later
+    // add win celebrations or animations here later
 }
 
 void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
@@ -347,7 +451,7 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
         deathAnimationStarted = true;
         std::cout << "Death animation started" << std::endl;
     }
-    MovementMusic.stop();
+    stopMovementMusic(); 
 
     // Always try to update the animation
     animation->Update(2, deltaTime, sprite);
@@ -360,6 +464,7 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
     }
     isMoving = false;
 }
+
 void Player::startShooting() {
     harpoonSound.play();
     isShooting = true;
@@ -440,16 +545,29 @@ void Player::stopShooting() {
     std::cout << "Shooting stopped, isShooting = " << isShooting << std::endl;
 }
 
+void Player::PopEnemyAndScore(std::shared_ptr<Entity> enemy) {
+    if (!enemy || !scoreManager) {
+        std::cout << "PopEnemyAndScore: Invalid enemy or scoreManager" << std::endl;
+        return;
+    }
+
+    std::cout << "Enemy popped!" << std::endl;
+
+    // Award score BEFORE deactivating the enemy
+    scoreManager->OnEnemyKilled(enemy, KillMethod::INFLATION);
+
+    // Deactivate the enemy AFTER scoring
+    enemy->setActive(false);
+}
+
 void Player::createTunnel(sf::Vector2f position) {
     if (map != nullptr && createTunnels) {
         int tileType = map->getTileAt(position.x, position.y);
-        if (tileType == 2 || tileType == 3 || tileType == 4 || tileType == 5) {
+        if (tileType == 2 || tileType == 3 || tileType == 4 || tileType == 6) {
             map->setTileAt(position.x, position.y, 0);
-            if (gameState && gameState->getGameState() != States::START) {
-                if (tileType == 2) score += 10;
-                if (tileType == 3) score += 20;
-                if (tileType == 4) score += 30;
-                if (tileType == 5) score += 40; 
+            if (gameState && gameState->getGameState() != States::START && scoreManager) {
+                // Use ScoreManager instead of direct scoring
+                scoreManager->OnTunnelDug(tileType);
             }
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 #include "Entity.h"
 #include "Map.h"
+#include "ScoreManager.h"
 #include <vector>
 #include <memory>
 
@@ -43,11 +44,8 @@ public:
 
     void ClearAllEnemies();
     void ClearAllRocks();
-
-    void KillEnemy(std::shared_ptr<Entity> enemy);
     void KillAllEnemiesAt(sf::Vector2f position, float radius);
 
-    void RemoveRock(std::shared_ptr<Rock> rock);
 
     const std::vector<std::shared_ptr<Entity>>& GetEnemies() const { return enemies; }
     const std::vector<std::shared_ptr<Rock>>& GetRocks() const { return rocks; }

@@ -25,34 +25,30 @@ void EnemyManager::Initialise() {
 void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition) {
     States currentState = gameState->getGameState();
 
-    // Only update enemies and rocks during GAME state
     if (currentState == States::GAME) {
         for (auto& enemy : enemies) {
             if (enemy && enemy->isActive()) {
                 enemy->Update(deltaTime, playerPosition);
             }
         }
-
-        // Update ALL rocks, not just active ones
-        // Rocks need to update even when !isActive() to handle destroy animation
         for (auto& rock : rocks) {
-            if (rock) {  // Only check if rock exists, not if it's active
+            if (rock) {
                 rock->Update(deltaTime, playerPosition);
             }
         }
 
-        CheckCollisionWithPlayer(playerPosition, { 16,16 });
+        CheckCollisionWithPlayer(playerPosition, { 16, 16 });
         RemoveDeadEnemies();
         RemoveDestroyedRocks();
     }
-    // During START, WIN, and LOSS states, entities remain stationary but are still drawn
 }
+
 
 void EnemyManager::Draw(sf::RenderWindow& window) {
     States currentState = gameState->getGameState();
 
-    // Draw enemies and rocks during GAME, START, and LOSS states CHANGE THIS IF YOU WANT TO HAVE IT NOT DRAW STUFF DURING A GAMESTATE
-    if (currentState == States::GAME || currentState == States::START || currentState == States::LOSS) {
+    // Draw enemies and rocks during GAME, START, LOSS, WIN states
+    if (currentState == States::GAME || currentState == States::START || currentState == States::LOSS || currentState == States::WIN || currentState == States::HIGHSCORE) {
         for (auto& enemy : enemies) {
             if (enemy && enemy->isActive()) {
                 enemy->Draw(window);
@@ -70,6 +66,11 @@ void EnemyManager::Draw(sf::RenderWindow& window) {
 }
 
 void EnemyManager::SpawnEnemiesFromMap() {
+    // Clear previously scored enemies when starting a new level
+    if (player && player->getScoreManager()) {
+        player->getScoreManager()->ClearScoredEnemies();
+    }
+
     const auto& spawns = gameMap->getEntitySpawns();
     for (const auto& spawn : spawns) {
         char spawnType = spawn.first;
@@ -129,66 +130,55 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
 
 void EnemyManager::RemoveDeadEnemies() {
     size_t initialCount = enemies.size();
-    auto removedCount = std::remove_if(enemies.begin(), enemies.end(),
+
+    // First, handle scoring for dead enemies
+    for (auto& enemy : enemies) {
+        if (enemy && !enemy->isActive()) {
+            // Determine kill method based on enemy state
+            KillMethod killMethod = KillMethod::INFLATION; // Default
+
+            // Check if it's a Pooka and determine kill method
+            auto pooka = std::dynamic_pointer_cast<Pooka>(enemy);
+            if (pooka) {
+                if (pooka->getPumpState() >= 4) {
+                    killMethod = KillMethod::INFLATION;
+                }
+                else {
+                    killMethod = KillMethod::ROCK; // Likely killed by rock if not fully inflated
+                }
+            }
+            // Award points through ScoreManager
+            if (player && player->getScoreManager()) {
+                player->getScoreManager()->OnEnemyKilled(enemy, killMethod);
+            }
+        }
+    }
+
+    // Then remove dead enemies
+    auto removed = std::remove_if(enemies.begin(), enemies.end(),
         [](const std::shared_ptr<Entity>& enemy) {
-            if (!enemy) {
-                std::cout << "Removing null enemy" << std::endl;
-                return true;
-            }
-            if (!enemy->isActive()) {
-                std::cout << "Removing dead enemy" << std::endl;
-                return true;
-            }
-            return false;
+            return !enemy || !enemy->isActive();
         });
-    enemies.erase(removedCount, enemies.end());
+    enemies.erase(removed, enemies.end());
     currentEnemyCount = static_cast<int>(enemies.size());
+
     if (enemies.size() != initialCount) {
         std::cout << "Removed " << (initialCount - enemies.size()) << " dead enemies. Current count: " << currentEnemyCount << std::endl;
     }
 }
 
+
 void EnemyManager::RemoveDestroyedRocks() {
     size_t initialCount = rocks.size();
-    auto removedCount = std::remove_if(rocks.begin(), rocks.end(),
+    auto removed = std::remove_if(rocks.begin(), rocks.end(),
         [](const std::shared_ptr<Rock>& rock) {
-            if (!rock) {
-                std::cout << "Removing null rock" << std::endl;
-                return true;
-            }
-            // Remove rocks that are marked for deletion OR have completed their destroy animation
-            if (rock->isMarkedForDeletion() || (!rock->isActive() && rock->getDestroyAnimationComplete())) {
-                std::cout << "Removing destroyed rock after animation completed" << std::endl;
-                return true;
-            }
-            return false;
+            return !rock || rock->isMarkedForDeletion() ||
+                (!rock->isActive() && rock->getDestroyAnimationComplete());
         });
-    rocks.erase(removedCount, rocks.end());
+    rocks.erase(removed, rocks.end());
+
     if (rocks.size() != initialCount) {
         std::cout << "Removed " << (initialCount - rocks.size()) << " destroyed rocks. Current count: " << rocks.size() << std::endl;
-    }
-}
-
-void EnemyManager::RemoveRock(std::shared_ptr<Rock> rock) {
-    if (!rock) {
-        std::cout << "Attempted to remove null rock" << std::endl;
-        return;
-    }
-    size_t initialCount = rocks.size();
-    auto removedCount = std::remove_if(rocks.begin(), rocks.end(),
-        [&rock](const std::shared_ptr<Rock>& r) {
-            if (r == rock) {
-                std::cout << "Removing specific rock at position (" << r->getPosition().x << ", " << r->getPosition().y << ")" << std::endl;
-                return true;
-            }
-            return false;
-        });
-    rocks.erase(removedCount, rocks.end());
-    if (rocks.size() != initialCount) {
-        std::cout << "Removed 1 rock. Current count: " << rocks.size() << std::endl;
-    }
-    else {
-        std::cout << "Failed to remove rock: not found in rocks vector" << std::endl;
     }
 }
 
@@ -228,21 +218,22 @@ void EnemyManager::HandleEnemyCollisions(std::shared_ptr<Entity> collidedEnemy) 
     }
 }
 
-void EnemyManager::KillEnemy(std::shared_ptr<Entity> enemy) {
-    if (enemy) {
-        enemy->setActive(false);
-        std::cout << "Enemy killed!" << std::endl;
-    }
-}
-
 void EnemyManager::KillAllEnemiesAt(sf::Vector2f position, float radius) {
     sf::FloatRect killZone({ position.x - radius, position.y - radius }, { radius * 2, radius * 2 });
+
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
             sf::FloatRect enemyBounds = enemy->getBounds();
             if (killZone.findIntersection(enemyBounds)) {
-                enemy->setActive(false);
                 std::cout << "Enemy killed by external force at position (" << position.x << ", " << position.y << ")" << std::endl;
+
+                // Kill the enemy (scoring will be handled in RemoveDeadEnemies)
+                enemy->setActive(false);
+
+                // Award points immediately for rock kills
+                if (player && player->getScoreManager()) {
+                    player->getScoreManager()->OnEnemyKilled(enemy, KillMethod::ROCK);
+                }
             }
         }
     }

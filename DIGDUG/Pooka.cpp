@@ -6,7 +6,7 @@
 #include "Pooka.h"
 #include "Player.h"
 
-Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sf::Vector2i(16, 16)),
+Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sf::Vector2i(16, 16), 300),
 health(4), speed(15.0f), status(0), sprite(texture), pumpSound(pumpBuffer), map(gameMap), player(player) {
 
 }
@@ -301,20 +301,17 @@ void Pooka::DetachHarpoon() {
 
 
 void Pooka::Inflate() {
-    if (harpoonStuck) { 
-        if (pumpState < MAX_PUMP_STATE) { 
+    if (harpoonStuck) {
+        if (pumpState < MAX_PUMP_STATE) {
             pumpState++;
             std::cout << "Pooka inflated to state: " << pumpState << std::endl;
-            updateInflationSprite(); // 
+            updateInflationSprite();
 
+            // Only kill the Pooka when fully inflated
             if (pumpState >= MAX_PUMP_STATE) {
-                // Pooka is fully pumped, maybe it explodes or is defeated
-                // Trigger death animation, score points, etc.
-
-                isAlive = false;
-                std::cout << "Pooka fully inflated!" << std::endl;
+                isAlive = false; // This will trigger scoring in EnemyManager
+                std::cout << "Pooka POPPED!" << std::endl;
                 DetachHarpoon();
-                // dont detach harpoon here, if you a death animation/effect
             }
         }
     }

@@ -26,8 +26,8 @@ private:
     float fallTimer;
 
     const float FALL_DELAY = 1.0f; // Time before rock starts falling
-    const float FALL_SPEED = 50.0f; // Pixels per second
-    const float DESTROY_ANIMATION_DURATION = 0.5f; // How long the destruction effect is visible
+    const float FALL_SPEED = 75.0f; // Pixels per second
+    const float DESTROY_ANIMATION_DURATION = 0.6f; // How long the destruction effect is visible
     const float SHAKE_AMPLITUDE = 1.0f; // Pixels of horizontal shake
     const float SHAKE_SPEED_MULTIPLIER = 15.0f;
 
@@ -41,7 +41,7 @@ private:
 
     void updateFalling(float deltaTime);
     void checkAndSquashEntities();
-    void startDestroyAnimation();
+    void startDestroyAnimation(float deltaTime);
 
 public:
     Rock(Map* gameMap, EnemyManager* em, Player* p, sf::Vector2f pos, sf::Vector2i tileTypeSourceGrid);
@@ -57,4 +57,5 @@ public:
     void setTextureIndex(int index) { tileTypeTextureIndex = index; }
     bool getDestroyAnimationComplete() const { return destroyAnimationComplete; }
     bool isMarkedForDeletion() const { return markedForDeletion; }
+    void startDestroyAnimation() const { startDestroyAnimation(); }
 };

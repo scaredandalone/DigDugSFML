@@ -9,6 +9,8 @@
 #include "StageManager.h"
 #include "GameState.h"
 #include "SFX.h"
+#include "Scoreboard.h"
+#include "ScoreManager.h"
 
 
 class Game
@@ -25,30 +27,38 @@ private:
     std::unique_ptr<EnemyManager> enemyManager;
     std::unique_ptr<GameState> gameState;
     std::unique_ptr<StageManager> stageManager;
+    std::unique_ptr<Scoreboard> scoreboard;
+    std::unique_ptr<ScoreManager> scoreManager;
 
     // Audio
     SFX victory;
     SFX lossMusic;
     SFX noLivesMusic;
     SFX startMusic;
+    SFX highScoreMusic;
 
     // UI Text
     sf::Text startText;
     sf::Text winText;
     sf::Text lossText;
-    sf::Text livesText;
+    sf::Text highScoreText;
+    sf::Text newHighScoreText;
 
     // Game timing variables
     float winDelayTimer;
     float startDelayTimer;
     float startPauseTimer;
     float lossDelayTimer;
+    float highScoreTimer;
 
     // Constants
     static constexpr float START_DELAY = 8.0f;
     static constexpr float WIN_DELAY = 3.0f;
     static constexpr float START_PAUSE_DELAY = 1.0f;
-    static constexpr float LOSS_DELAY = 6.0f;
+
+    static constexpr float LOSS_DELAY = 3.0f;
+    static constexpr float NOLIVES_DELAY = 6.0f;
+    static constexpr float HIGHSCORE_DELAY = 10.0f;
     static constexpr int TILE_SIZE = 16;
 
     // Start scene variables
@@ -59,6 +69,7 @@ private:
     bool startPauseComplete;
     bool movingHorizontally;
     bool lossSceneInitialized;
+    bool highScoreSceneInitialized;
     int horizontalSteps;
     int verticalSteps;
 
@@ -98,11 +109,17 @@ private:
     void updateGameState(float deltaTime);
     void updateWinState(float deltaTime);
     void updateLossState(float deltaTime);
+    void updateHighScoreState(float deltaTime);
 
+
+    void drawHighscoreScene();
     // Start scene helpers
-    void initializeStartScene();
+    void initializeStartScene();    
     void updateStartMovement(float deltaTime);
     void setNextStartTarget();
+
+    // High score scene helpers
+    void initializeHighScoreScene();
 
     // Stage management
     void loadNextStage();

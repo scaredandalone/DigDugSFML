@@ -21,11 +21,15 @@ protected:
     const int TILE_SIZE = 16;
     std::unique_ptr<Animation> animation;
 
+    int scoreAwarded;
+
+
+
     virtual bool canMoveTo(sf::Vector2f position, Map* map) const;
     void move(float deltaTime, float speed, sf::Sprite& sprite);
 
 public:
-    Entity(EntityType t, bool alive, sf::Vector2i size);
+    Entity(EntityType t, bool alive, sf::Vector2i size, int scoreawarded);
     virtual ~Entity();
 
     virtual void Initialise();
@@ -51,4 +55,6 @@ public:
     static EntityID nextID;
     static EntityID CreateEntity() { return ++nextID; }
     static bool IsValid(EntityID entity) { return entity != INVALID_ENTITY; }
+    int getScoreAwarded() const { return scoreAwarded; }
+
 };

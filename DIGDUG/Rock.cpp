@@ -6,7 +6,7 @@
 #include <cmath>
 
 Rock::Rock(Map* gameMap, EnemyManager* em, Player* p, sf::Vector2f pos, sf::Vector2i tileTypeSourceGrid)
-    : Entity(EntityType::ROCK, true, sf::Vector2i(TILE_SIZE, TILE_SIZE)),
+    : Entity(EntityType::ROCK, true, sf::Vector2i(TILE_SIZE, TILE_SIZE),0),
     map(gameMap), enemyManager(em), player(p),
     initialTileTypeSource(tileTypeSourceGrid),
     isFalling(false), fallTimer(0.0f), hasFallen(false),
@@ -51,13 +51,16 @@ void Rock::Load() {
     rockSprite.setTextureRect(sf::IntRect({ 0, 0 }, { TILE_SIZE, TILE_SIZE }));
     tileSprite.setPosition(getPosition());
     rockSprite.setPosition(getPosition());
+
+    animation = std::make_unique<Animation>(&rockTexture, sf::Vector2u(4,1), 0.2f, TILE_SIZE, TILE_SIZE, false);
     std::cout << "Rock loaded successfully with layered rendering at position ("
         << getPosition().x << ", " << getPosition().y << ")" << '\n';
 }
 
 void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
-    // Handle destruction animation first, regardless of alive status
+
     if (!isAlive && destroyAnimationStarted && !destroyAnimationComplete) {
+        startDestroyAnimation(deltaTime);
         destroyTimer += deltaTime;
         if (destroyTimer >= DESTROY_ANIMATION_DURATION) {
             destroyAnimationComplete = true;
@@ -66,6 +69,7 @@ void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
                 << getPosition().x << ", " << getPosition().y << ")" << std::endl;
         }
     }
+
 
     // If not alive and destruction animation is handled, don't process falling logic
     if (!isAlive) {
@@ -104,7 +108,7 @@ void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
             std::cout << "Rock hit solid ground!" << std::endl;
             // Mark as dead and start destroy animation immediately
             isAlive = false;
-            startDestroyAnimation();
+            startDestroyAnimation(deltaTime);
         }
         fallTimer = 0.0f;
         isShaking = false;
@@ -159,7 +163,7 @@ void Rock::updateFalling(float deltaTime) {
         hasFallen = true;
         isAlive = false; // Mark as dead when it hits the ground
         std::cout << "Rock landed with bottom on top of solid tile at y=" << snappedRockCenterY << ". Tile type: " << tileBelowType << std::endl;
-        startDestroyAnimation();
+        startDestroyAnimation(deltaTime);
     }
 }
 
@@ -195,20 +199,21 @@ void Rock::checkAndSquashEntities() {
             }
         }
     }
-    if (hasSquashedSomething) {
-        isAlive = false;
-        startDestroyAnimation();
-    }
+  // can remove if you want to destroy rock after it kills enemy if (hasSquashedSomething) {
+  // can remove if you want to destroy rock after it kills enemy     isAlive = false;
+  // can remove if you want to destroy rock after it kills enemy     startDestroyAnimation();
+  // can remove if you want to destroy rock after it kills enemy }
 }
 
-void Rock::startDestroyAnimation() {
+void Rock::startDestroyAnimation(float deltaTime) {
     if (!destroyAnimationStarted) {
         destroyAnimationStarted = true;
-        tileSprite.setColor(sf::Color(255, 255, 255, 128));
-        rockSprite.setColor(sf::Color(255, 255, 255, 128));
+        animation->ResetAnimation(); // Reset to first frame of animation
         std::cout << "Rock destruction started" << std::endl;
         destroyTimer = 0.0f;
     }
+    animation->Update(0, deltaTime * 1.5, rockSprite);
+
 }
 
 bool Rock::isSolid(float x, float y) {

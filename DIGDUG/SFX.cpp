@@ -114,3 +114,11 @@ bool SFX::isValid() const
     return (type == Type::SOUND && sound && soundBuffer) ||
         (type == Type::MUSIC && music);
 }
+
+void SFX::setPlayingOffset(sf::Time timeOffset)
+{
+    if (type == Type::MUSIC && music) {
+        music->setPlayingOffset(timeOffset);
+    }
+    // No effect for SOUND type, as sf::Sound does not support setting playback offset
+}

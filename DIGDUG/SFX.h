@@ -44,4 +44,6 @@ public:
     // Utility
     Type getType() const;
     bool isValid() const;
+
+    void setPlayingOffset(sf::Time timeOffset); 
 };

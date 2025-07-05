@@ -33,6 +33,8 @@ void Map::setupTextureMapping() {
     // Map tile types to texture indices based on current level
     tileTypeToTexture.clear();
 
+    tileTypeToTexture[6] = 0; // for the rock, so the enemy cant pathfind to it
+
     if (currentLevel == 0) {
         tileTypeToTexture[0] = 0;  // Empty
         tileTypeToTexture[1] = 1;  // Surface
@@ -49,7 +51,7 @@ void Map::setupTextureMapping() {
         tileTypeToTexture[4] = 8;
         tileTypeToTexture[5] = 9;
     }
-    else if (currentLevel <= 2) {
+    else if (currentLevel >= 2) {
         tileTypeToTexture[0] = 0;  // Empty
         tileTypeToTexture[1] = 1;  // Surface
         tileTypeToTexture[2] = 10; // Different dirt textures
@@ -107,7 +109,7 @@ bool Map::loadFromFile(const std::string& filename) {
                         rockInfo.textureIndex = tileTypeToTexture[1]; // Example: Use surface texture
                     }
                     rockSpawns.push_back(rockInfo);
-                    tileData[row][col] = 0; // The 'R' tile itself is considered empty space
+                    tileData[row][col] = 6; // The 'R' tile itself is considered BEDROCK
                 }
             }
             else {
