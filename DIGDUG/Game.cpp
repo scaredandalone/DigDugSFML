@@ -8,14 +8,15 @@ Game::Game()
     , startPauseTimer(0.0f)
     , lossDelayTimer(0.0f)
     , highScoreTimer(0.0f)
+    , lowTimeDelayTimer(0.0f)
     , startSceneStep(0)
     , TOTAL_START_STEPS(0)
     , startMovementComplete(false)
-    , startSceneInitialized(false)
+    , startSceneInitialised(false)
     , startPauseComplete(false)
     , movingHorizontally(true)
-    , lossSceneInitialized(false)
-    , highScoreSceneInitialized(false)
+    , lossSceneInitialised(false)
+    , highScoreSceneInitialised(false)
     , horizontalSteps(0)
     , verticalSteps(0)
     , initialPos(-16, 16)
@@ -25,15 +26,19 @@ Game::Game()
     , noLivesMusic("Assets/Sounds/Music/nolivesleft.mp3", SFX::Type::MUSIC)
     , victory("Assets/Sounds/Music/success.mp3", SFX::Type::MUSIC)
     , highScoreMusic("Assets/Sounds/Music/highscore.mp3", SFX::Type::MUSIC)
+    , lastEnemySound("Assets/Sounds/Music/lastenemy.mp3", SFX::Type::SOUND)
+    , lowTimeSound("Assets/Sounds/Music/lowtime.mp3", SFX::Type::SOUND)
     , lossText(font)
     , startText(font)
     , winText(font)
     , highScoreText(font)
     , newHighScoreText(font)
+    , levelTimeLimit(40.0f)
+    , timerEnabled(true)
 {
 }
 
-bool Game::initialize()
+bool Game::initialise()
 {
     if (!loadAssets()) {
         return false;
@@ -41,9 +46,9 @@ bool Game::initialize()
     sf::View view(sf::FloatRect({ 0, 0 }, { 224, 270 }));
     window.setView(view);
 
-    initializeGameObjects();
-    initializeUI();
-    initializeAudio();
+    initialiseGameObjects();
+    initialiseUI();
+    initialiseAudio();
 
     if (!loadInitialMap()) {
         return false;
@@ -77,7 +82,7 @@ bool Game::loadAssets()
     return true;
 }
 
-void Game::initializeGameObjects()
+void Game::initialiseGameObjects()
 {
     map = std::make_unique<Map>();
     player = std::make_unique<Player>(map.get());
@@ -94,7 +99,7 @@ void Game::initializeGameObjects()
     player->SetEnemyManager(enemyManager.get());
 }
 
-void Game::initializeUI()
+void Game::initialiseUI()
 {
     startText = sf::Text(font, "Stage Start");
     startText.setCharacterSize(10);
@@ -130,19 +135,22 @@ void Game::initializeUI()
     scoreboard->setBackgroundColor(sf::Color(0, 0, 0, 0));
 }
 
-void Game::initializeAudio()
+void Game::initialiseAudio()
 {
-    victory.setVolume(30);
-
+    // set loops for music
     startMusic.setLoop(false);
     lossMusic.setLoop(false);
     noLivesMusic.setLoop(false);
     highScoreMusic.setLoop(false);
 
+    // set volume for all SFX
+    victory.setVolume(30);
     startMusic.setVolume(35);
     lossMusic.setVolume(35);
     noLivesMusic.setVolume(35);
     highScoreMusic.setVolume(35);
+    lastEnemySound.setVolume(15);
+    lowTimeSound.setVolume(15);
 }
 
 bool Game::loadInitialMap()
@@ -243,8 +251,11 @@ void Game::update(float deltaTime)
 
 void Game::updateStartState(float deltaTime)
 {
-    if (!startSceneInitialized) {
-        initializeStartScene();
+    if (!startSceneInitialised) {
+        initialiseStartScene();
+    }
+    if (timerEnabled) {
+        scoreboard->pauseTimer();
     }
 
     startDelayTimer += deltaTime;
@@ -253,13 +264,26 @@ void Game::updateStartState(float deltaTime)
     if (startDelayTimer >= START_DELAY) {
         gameState->setGameState(States::GAME);
         startMusic.stop();
-        startSceneInitialized = false;
+        startSceneInitialised = false;
+        lastEnemySoundPlayed = false;
+        if (timerEnabled) {
+            scoreboard->resumeTimer(); // Resume the timer when entering GAME state
+        }
         std::cout << "Transitioning to GAME state" << std::endl;
     }
 }
 
-void Game::initializeStartScene()
+void Game::initialiseStartScene()
 {
+    if (timerEnabled) {
+        float timeLimit = levelTimeLimit - (stageManager->getCurrentStage() * 5.0f); // decrease by 5s each level
+        timeLimit = std::max(timeLimit, 30.0f); // Minimum 30 seconds
+
+        scoreboard->startTimer(timeLimit);
+        std::cout << "Timer started for stage " << stageManager->getCurrentStage()
+            << " with " << timeLimit << " seconds" << std::endl;
+    }
+
     calculateStartMovement();
 
     player->setPosition(initialPos);
@@ -269,17 +293,21 @@ void Game::initializeStartScene()
     player->DetachHarpoon();
     player->SetCreateTunnels(false);
     player->setHealth(1);
+    player->resetMusic(Reason::DEFAULT);
+
+    enemyManager->ClearAllEnemies();
+    enemyManager->SpawnEnemiesFromMap();
 
     startSceneStep = 0;
     startMovementComplete = false;
-    startSceneInitialized = true;
+    startSceneInitialised = true;
     startDelayTimer = 0.0f;
     startPauseTimer = 0.0f;
     startPauseComplete = false;
     movingHorizontally = true;
 
     startMusic.play();
-    std::cout << "START scene initialized: Player reset to (" << initialPos.x << ", " << initialPos.y << ")" << std::endl;
+    std::cout << "START scene initialised: Player reset to (" << initialPos.x << ", " << initialPos.y << ")" << std::endl;
 }
 
 void Game::updateStartMovement(float deltaTime)
@@ -308,6 +336,7 @@ void Game::updateStartMovement(float deltaTime)
             player->SetCreateTunnels(true);
             std::cout << "START scene: Movement complete at (" << finalPos.x << ", " << finalPos.y << ")" << std::endl;
             player->resetTransform();
+
         }
     }
 }
@@ -346,12 +375,109 @@ void Game::setNextStartTarget()
     }
 }
 
+
 void Game::updateGameState(float deltaTime)
 {
     player->Update(deltaTime, player->getPlayerPosition());
     enemyManager->Update(deltaTime, player->getPlayerPosition());
+    int enemyCount = enemyManager->GetEnemyCount();
 
-    if (enemyManager->GetEnemyCount() == 0) {
+    if (timerEnabled && scoreboard->isTimerExpired()) {
+        std::cout << "Time's up! Player loses a life" << std::endl;
+        gameState->setGameState(States::LOSS);
+        lossDelayTimer = 0.0f;
+        lossSceneInitialised = false;
+        return;
+    }
+
+    // Check timer phases
+    if (timerEnabled) {
+        float remainingTime = scoreboard->getRemainingTime();
+        static bool lowTimeSoundPlayed = false;
+        static bool lowTimeSoundPlaying = false;
+
+        if (remainingTime <= 15.0f && currentTimerPhase != TimerPhase::FIFTEEN_SECONDS && !lowTimeSoundPlayed && !lowTimeSoundPlaying) {
+            // Pause player movement music before playing low time sound
+            player->setMovementMusicStatus(false);
+            lowTimeSound.play();
+            lowTimeSoundPlayed = true;
+            lowTimeSoundPlaying = true;
+            lowTimeDelayTimer = 0.0f;
+            std::cout << "Playing low time sound and pausing movement music" << std::endl;
+        }
+
+        // Track low time sound playback
+        if (lowTimeSoundPlaying) {
+            lowTimeDelayTimer += deltaTime;
+            if (lowTimeDelayTimer >= LOWTIME_DELAY || !lowTimeSound.isPlaying()) {
+                lowTimeSoundPlaying = false;
+                player->setMovementMusicStatus(true);
+                // Resume music based on current timer phase
+                player->resetMusic(Reason::FIFTEEN_SECONDS);
+                enemyManager->setSpeedMultipler(1.8);
+                currentTimerPhase = TimerPhase::FIFTEEN_SECONDS;
+                std::cout << "Low time sound finished, resuming movement music (FIFTEEN_SECONDS)" << std::endl;
+            }
+        }
+        else if (remainingTime <= 30.0f && currentTimerPhase == TimerPhase::NORMAL) {
+            enemyManager->setSpeedMultipler(1.5);
+            player->resetMusic(Reason::THIRTY_SECONDS);
+            currentTimerPhase = TimerPhase::THIRTY_SECONDS;
+            std::cout << "Timer phase changed to THIRTY_SECONDS" << std::endl;
+        }
+
+        // Reset low time sound flags if timer goes above 15 seconds (e.g., due to a reset)
+        if (remainingTime > 15.0f) {
+            lowTimeSoundPlayed = false;
+            lowTimeSoundPlaying = false;
+            lowTimeDelayTimer = 0.0f;
+        }
+    }
+
+    if (enemyCount == 1 && !lastEnemySoundPlayed && !lastEnemySoundPlaying) {
+        // Pause player movement music before playing last enemy sound
+        player->setMovementMusicStatus(false);
+        lastEnemySound.play();
+        lastEnemySoundPlayed = true;
+        lastEnemySoundPlaying = true;
+        lastEnemySoundTimer = 0.0f;
+        std::cout << "Playing last enemy sound and pausing movement music" << std::endl;
+    }
+
+    // Track last enemy sound playback
+    if (lastEnemySoundPlaying) {
+        lastEnemySoundTimer += deltaTime;
+        if (lastEnemySoundTimer >= lastEnemySoundDuration || !lastEnemySound.isPlaying()) {
+            lastEnemySoundPlaying = false;
+            player->setMovementMusicStatus(true);
+            // Resume music based on current timer phase
+            if (currentTimerPhase == TimerPhase::FIFTEEN_SECONDS) {
+                player->resetMusic(Reason::FIFTEEN_SECONDS);
+            }
+            else if (currentTimerPhase == TimerPhase::THIRTY_SECONDS) {
+                player->resetMusic(Reason::THIRTY_SECONDS);
+            }
+            else {
+                player->resetMusic(Reason::LAST_ENEMY);
+            }
+            std::cout << "Last enemy sound finished, resuming movement music based on timer phase" << std::endl;
+        }
+    }
+
+    if (enemyCount > 1) {
+        lastEnemySoundPlayed = false;
+        lastEnemySoundPlaying = false;
+        lastEnemySoundTimer = 0.0f;
+        // Ensure music aligns with timer phase if not already
+        if (currentTimerPhase == TimerPhase::FIFTEEN_SECONDS && !player->isPlayingFasterMusic()) {
+            player->resetMusic(Reason::FIFTEEN_SECONDS);
+        }
+        else if (currentTimerPhase == TimerPhase::THIRTY_SECONDS && !player->isPlayingFastMusic()) {
+            player->resetMusic(Reason::THIRTY_SECONDS);
+        }
+    }
+
+    if (enemyCount == 0) {
         gameState->setGameState(States::WIN);
         victory.play();
         winDelayTimer = 0.0f;
@@ -361,7 +487,7 @@ void Game::updateGameState(float deltaTime)
     if (player->getHealth() <= 0) {
         gameState->setGameState(States::LOSS);
         lossDelayTimer = 0.0f;
-        lossSceneInitialized = false;
+        lossSceneInitialised = false;
         std::cout << "Player died! Transitioning to LOSS state" << std::endl;
     }
 }
@@ -371,6 +497,18 @@ void Game::updateWinState(float deltaTime)
     winDelayTimer += deltaTime;
     player->Update(deltaTime, player->getPlayerPosition());
     player->resetTransform();
+    if (timerEnabled && scoreboard->isTimerRunning()) {
+        float remainingTime = scoreboard->getRemainingTime();
+        int timeBonus = static_cast<int>(remainingTime * 20); // 20 points per second remaining 
+
+        if (timeBonus > 0) {
+            player->addScore(timeBonus);
+            std::cout << "Time bonus: " << timeBonus << " points for "
+                << remainingTime << " seconds remaining" << std::endl;
+        }
+
+        scoreboard->stopTimer();
+    }
 
     if (winDelayTimer >= WIN_DELAY) {
         loadNextStage();
@@ -381,7 +519,10 @@ void Game::updateWinState(float deltaTime)
 
 void Game::updateLossState(float deltaTime)
 {
-    if (!lossSceneInitialized) {
+    if (!lossSceneInitialised) {
+        if (timerEnabled) {
+            scoreboard->stopTimer();
+        }
         player->setLives(player->getLives() - 1);
         if (player->getLives() > 0) {
             lossMusic.play();
@@ -391,7 +532,7 @@ void Game::updateLossState(float deltaTime)
             noLivesMusic.play();
             std::cout << "Player died! No lives remaining. Game Over!" << std::endl;
         }
-        lossSceneInitialized = true;
+        lossSceneInitialised = true;
         lossDelayTimer = 0.0f;
     }
 
@@ -410,7 +551,7 @@ void Game::updateLossState(float deltaTime)
             if (newHighScore) {
                 // Transition to high score scene
                 gameState->setGameState(States::HIGHSCORE);
-                initializeHighScoreScene();
+                initialiseHighScoreScene();
                 std::cout << "New high score achieved! Transitioning to HIGHSCORE state" << std::endl;
             }
             else {
@@ -426,21 +567,21 @@ void Game::updateLossState(float deltaTime)
         }
         lossMusic.stop();
         noLivesMusic.stop();
-        lossSceneInitialized = false;
+        lossSceneInitialised = false;
     }
 }
 
 void Game::updateHighScoreState(float deltaTime)
 {
-    if (!highScoreSceneInitialized) {
-        initializeHighScoreScene();
+    if (!highScoreSceneInitialised) {
+        initialiseHighScoreScene();
     }
 
     highScoreTimer += deltaTime;
 
     if (highScoreTimer >= HIGHSCORE_DELAY) {
         highScoreMusic.stop();
-        highScoreSceneInitialized = false;
+        highScoreSceneInitialised = false;
 
         // After high score scene, restart from first stage
         restartFromFirstStage();
@@ -451,10 +592,10 @@ void Game::updateHighScoreState(float deltaTime)
     }
 }
 
-void Game::initializeHighScoreScene()
+void Game::initialiseHighScoreScene()
 {
     highScoreTimer = 0.0f;
-    highScoreSceneInitialized = true;
+    highScoreSceneInitialised = true;
 
     // Stop any other music and play high score music
     lossMusic.stop();
@@ -464,7 +605,7 @@ void Game::initializeHighScoreScene()
     // Ensure the score manager is showing the new high score
     scoreManager->ShouldShowNewHighScore();
 
-    std::cout << "High score scene initialized" << std::endl;
+    std::cout << "High score scene initialised" << std::endl;
     std::cout << "New high score text: " << scoreManager->GetNewHighScoreText() << std::endl;
     drawHighscoreScene();
 }
@@ -520,22 +661,23 @@ void Game::restartFromFirstStage()
 
 
 void Game::drawHighscoreScene() {
-  sf::Text newHighScoreText(font, scoreManager->GetNewHighScoreText());
-  newHighScoreText.setCharacterSize(12);
+    sf::Text newHighScoreText(font, scoreManager->GetNewHighScoreText());
+    newHighScoreText.setCharacterSize(12);
 
 
-  static sf::Clock flashClock;
-  float flashInterval = 0.25f;
-  bool isYellow = fmod(flashClock.getElapsedTime().asSeconds(), flashInterval * 2) < flashInterval;
+    static sf::Clock flashClock;
+    float flashInterval = 0.25f;
+    bool isYellow = fmod(flashClock.getElapsedTime().asSeconds(), flashInterval * 2) < flashInterval;
 
-  // Alternate between red and yellow
-  newHighScoreText.setFillColor(isYellow ? sf::Color::Yellow : sf::Color::Red);
+    // Alternate between red and yellow
+    newHighScoreText.setFillColor(isYellow ? sf::Color::Yellow : sf::Color::Red);
+    highScoreText.setFillColor(isYellow ? sf::Color::Yellow : sf::Color::Red);
 
-  newHighScoreText.setPosition(sf::Vector2f(112, 135)); // Center of screen
-  sf::FloatRect newHighScoreBounds = newHighScoreText.getLocalBounds();
-  newHighScoreText.setOrigin(sf::Vector2f(newHighScoreBounds.size.x / 2, newHighScoreBounds.size.y / 2));
-  window.draw(newHighScoreText);
-  window.draw(highScoreText);
+    newHighScoreText.setPosition(sf::Vector2f(112, 135)); // Center of screen
+    sf::FloatRect newHighScoreBounds = newHighScoreText.getLocalBounds();
+    newHighScoreText.setOrigin(sf::Vector2f(newHighScoreBounds.size.x / 2, newHighScoreBounds.size.y / 2));
+    window.draw(newHighScoreText);
+    window.draw(highScoreText);
 }
 
 void Game::render()
@@ -563,8 +705,8 @@ void Game::render()
         break;
     case States::HIGHSCORE:
         drawHighscoreScene();
-        if(highScoreTimer > HIGHSCORE_DELAY)
-        break;
+        if (highScoreTimer > HIGHSCORE_DELAY)
+            break;
     }
     window.display();
 }

@@ -17,6 +17,9 @@ class Game
 {
 private:
     // Window and graphics
+
+    enum class TimerPhase { NORMAL, THIRTY_SECONDS, FIFTEEN_SECONDS };
+    TimerPhase currentTimerPhase = TimerPhase::NORMAL;
     sf::RenderWindow window;
     sf::Font font;
     sf::Clock clock;
@@ -36,6 +39,8 @@ private:
     SFX noLivesMusic;
     SFX startMusic;
     SFX highScoreMusic;
+    SFX lastEnemySound;
+    SFX lowTimeSound;
 
     // UI Text
     sf::Text startText;
@@ -50,6 +55,12 @@ private:
     float startPauseTimer;
     float lossDelayTimer;
     float highScoreTimer;
+    float lowTimeDelayTimer;
+    
+    bool lastEnemySoundPlayed = false;
+    bool lastEnemySoundPlaying = false;
+    float lastEnemySoundDuration = 2.2f; 
+    float lastEnemySoundTimer = 0.0f;
 
     // Constants
     static constexpr float START_DELAY = 8.0f;
@@ -58,18 +69,19 @@ private:
 
     static constexpr float LOSS_DELAY = 3.0f;
     static constexpr float NOLIVES_DELAY = 6.0f;
-    static constexpr float HIGHSCORE_DELAY = 10.0f;
+    static constexpr float HIGHSCORE_DELAY = 11.0f;
+    static constexpr float LOWTIME_DELAY = 2.5f;
     static constexpr int TILE_SIZE = 16;
 
     // Start scene variables
     int startSceneStep;
     int TOTAL_START_STEPS;
     bool startMovementComplete;
-    bool startSceneInitialized;
+    bool startSceneInitialised;
     bool startPauseComplete;
     bool movingHorizontally;
-    bool lossSceneInitialized;
-    bool highScoreSceneInitialized;
+    bool lossSceneInitialised;
+    bool highScoreSceneInitialised;
     int horizontalSteps;
     int verticalSteps;
 
@@ -80,22 +92,26 @@ private:
     // Previous state tracking
     States previousState;
 
+    // timer
+    float levelTimeLimit;
+    bool timerEnabled;
+
 public:
     // Constructor and destructor
     Game();
     ~Game() = default;
 
     // Main game functions
-    bool initialize();
+    bool initialise();
     void run();
     void cleanup();
 
 private:
     // Initialization helpers
     bool loadAssets();
-    void initializeGameObjects();
-    void initializeUI();
-    void initializeAudio();
+    void initialiseGameObjects();
+    void initialiseUI();
+    void initialiseAudio();
     bool loadInitialMap();
     void calculateStartMovement();
 
@@ -114,12 +130,12 @@ private:
 
     void drawHighscoreScene();
     // Start scene helpers
-    void initializeStartScene();    
+    void initialiseStartScene();    
     void updateStartMovement(float deltaTime);
     void setNextStartTarget();
 
     // High score scene helpers
-    void initializeHighScoreScene();
+    void initialiseHighScoreScene();
 
     // Stage management
     void loadNextStage();

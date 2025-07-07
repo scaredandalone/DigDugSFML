@@ -51,4 +51,5 @@ public:
     const std::vector<std::shared_ptr<Rock>>& GetRocks() const { return rocks; }
     int GetEnemyCount() const { return currentEnemyCount; }
     void SetGameState(GameState* gs) { gameState = gs; }
+    void setSpeedMultipler(float multiple);
 };

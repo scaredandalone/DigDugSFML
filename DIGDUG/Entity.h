@@ -20,7 +20,7 @@ protected:
     sf::Vector2f targetPosition;
     const int TILE_SIZE = 16;
     std::unique_ptr<Animation> animation;
-
+    float speed;
     int scoreAwarded;
 
 
@@ -45,6 +45,7 @@ public:
     virtual void setPosition(sf::Vector2f pos);
     virtual void setTargetPosition(sf::Vector2f target);
     virtual bool getInflationStatus();
+    virtual void multiplySpeed(float multiple) { speed *= multiple; }
 
     sf::FloatRect getBounds() const;
     sf::Vector2f getPosition() const { return hitbox.getPosition(); }
@@ -56,5 +57,6 @@ public:
     static EntityID CreateEntity() { return ++nextID; }
     static bool IsValid(EntityID entity) { return entity != INVALID_ENTITY; }
     int getScoreAwarded() const { return scoreAwarded; }
+ 
 
 };

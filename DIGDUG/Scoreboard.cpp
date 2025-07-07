@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <iomanip>
 
 Scoreboard::Scoreboard()
     : position(10.f, 10.f),
@@ -15,7 +16,12 @@ Scoreboard::Scoreboard()
     spriteSpacing(5.f),
     scoreText(font),
     levelText(font),
-    playerSprite(playerTexture)
+    timerText(font),
+    playerSprite(playerTexture),
+    levelTimeLimit(60.0f),
+    timerRunning(false),
+    timerExpired(false),
+    timerPaused(false)
 {
     if (!font.openFromFile("Assets/Fonts/digdugfont.otf")) {
         std::cerr << "Warning: Could not load font from digdugfont" << std::endl;
@@ -36,7 +42,11 @@ Scoreboard::Scoreboard(sf::Vector2f pos, unsigned int fontSz)
     spriteSpacing(5.f),
     scoreText(font),
     levelText(font),
-    playerSprite(playerTexture)
+    timerText(font),
+    playerSprite(playerTexture),
+    levelTimeLimit(60.0f),
+    timerRunning(false),
+    timerExpired(false)
 {
     if (!font.openFromFile("Assets/Fonts/digdugfont.otf")) {
         std::cerr << "Warning: Could not load font digdugfont" << std::endl;
@@ -58,13 +68,18 @@ void Scoreboard::setupTexts() {
     levelText.setCharacterSize(fontSize);
     levelText.setFillColor(textColor);
     levelText.setPosition(sf::Vector2f(position.x + padding + 150, position.y + padding));
+
+    // Configure timer text
+    timerText.setFont(font);
+    timerText.setCharacterSize(fontSize);
+    timerText.setFillColor(textColor);
+    timerText.setPosition(sf::Vector2f(position.x + padding + 150, position.y + padding + 15));
 }
 
 void Scoreboard::setupBackground() {
     background.setFillColor(backgroundColor);
     background.setPosition(position);
-
-    background.setSize(sf::Vector2f(400.f, 50.f));
+    background.setSize(sf::Vector2f(500.f, 50.f)); // Increased width to accommodate timer
 }
 
 void Scoreboard::update(const Player& player, const StageManager& stageManager) {
@@ -76,8 +91,51 @@ void Scoreboard::update(const Player& player, const StageManager& stageManager) 
     levelStream << "LEVEL " << stageManager.getCurrentStage();
     levelText.setString(levelStream.str());
 
-    // update lifes
+    // Update timer
+    updateTimer();
+
+    // Update lifes
     updateLifeSprites(player.getLives());
+}
+
+void Scoreboard::updateTimer() {
+    float remaining = levelTimeLimit;
+
+    if (timerRunning) {
+        if (timerPaused) {
+            // When paused, use the saved pausedTime
+            remaining = levelTimeLimit - pausedTime.asSeconds();
+        }
+        else {
+            // When not paused, get current elapsed time
+            float elapsed = levelClock.getElapsedTime().asSeconds();
+            remaining = levelTimeLimit - elapsed;
+        }
+
+        if (remaining <= 0.0f) {
+            remaining = 0.0f;
+            timerExpired = true;
+            timerRunning = false;
+        }
+    }
+    else {
+        remaining = 0.0f; // Display 0 when timer is not running
+    }
+
+    int seconds = static_cast<int>(remaining);
+
+    std::stringstream timerStream;
+    timerStream << "TIME " << std::setw(2) << std::setfill('0') << seconds;
+
+    // Change color when time is running low (last 10 seconds)
+    if (timerRunning && remaining <= 10.0f && remaining > 0.0f) {
+        timerText.setFillColor(sf::Color::Red);
+    }
+    else {
+        timerText.setFillColor(textColor);
+    }
+
+    timerText.setString(timerStream.str());
 }
 
 void Scoreboard::updateLifeSprites(int lives) {
@@ -87,11 +145,11 @@ void Scoreboard::updateLifeSprites(int lives) {
         // No texture loaded, skip sprite creation
         return;
     }
-    float spriteWidth = 16 * spriteScale; 
+    float spriteWidth = 16 * spriteScale;
     float totalSpritesWidth = lives * spriteWidth + (lives - 1) * spriteSpacing;
 
     float spriteX = (224 - totalSpritesWidth) / 2; // Center horizontally
-    float spriteY = 270 - 15.f; 
+    float spriteY = 270 - 15.f;
 
     // Create sprites based on number of lives
     for (int i = 0; i < lives; ++i) {
@@ -114,11 +172,75 @@ void Scoreboard::render(sf::RenderWindow& window) {
     window.draw(background);
     window.draw(scoreText);
     window.draw(levelText);
+    window.draw(timerText);
 
     // Draw life sprites
     for (const auto& lifeSprite : lifeSprites) {
         window.draw(lifeSprite);
     }
+}
+
+// Timer methods
+void Scoreboard::startTimer(float timeLimitSeconds) {
+    levelTimeLimit = timeLimitSeconds;
+    levelClock.restart();
+    timerRunning = true;
+    timerExpired = false;
+    timerPaused = false;
+}
+
+void Scoreboard::stopTimer() {
+    timerRunning = false;
+    timerPaused = false;
+}
+
+void Scoreboard::resetTimer() {
+    levelClock.restart();
+    timerRunning = false;
+    timerExpired = false;
+    timerPaused = false;
+}
+
+void Scoreboard::pauseTimer() {
+    if (timerRunning && !timerPaused) {
+        pausedTime = levelClock.getElapsedTime();
+        timerPaused = true;
+    }
+}
+
+void Scoreboard::resumeTimer() {
+    if (timerRunning && timerPaused) {
+        levelClock.restart();
+        timerPaused = false;
+
+        // Adjust the time limit to account for time already elapsed
+        levelTimeLimit = levelTimeLimit - pausedTime.asSeconds();
+    }
+}
+
+float Scoreboard::getRemainingTime() const {
+    if (!timerRunning || timerPaused) return timerPaused ? (levelTimeLimit - pausedTime.asSeconds()) : 0.0f;
+
+    float elapsed = levelClock.getElapsedTime().asSeconds();
+    float remaining = levelTimeLimit - elapsed;
+    return remaining > 0.0f ? remaining : 0.0f;
+}
+
+float Scoreboard::getElapsedTime() const {
+    if (timerPaused) return pausedTime.asSeconds();
+    return levelClock.getElapsedTime().asSeconds();
+}
+
+bool Scoreboard::isTimerExpired() const {
+    return timerExpired;
+}
+
+bool Scoreboard::isTimerRunning() const {
+    return timerRunning && !timerPaused;
+}
+
+void Scoreboard::setTimerLimit(float seconds) {
+    levelTimeLimit = seconds;
 }
 
 // Setters for customization
@@ -132,6 +254,7 @@ void Scoreboard::setTextColor(sf::Color color) {
     textColor = color;
     scoreText.setFillColor(color);
     levelText.setFillColor(color);
+    timerText.setFillColor(color);
 }
 
 void Scoreboard::setBackgroundColor(sf::Color color) {
@@ -143,7 +266,8 @@ void Scoreboard::setFontSize(unsigned int size) {
     fontSize = size;
     scoreText.setCharacterSize(size);
     levelText.setCharacterSize(size);
-    setupTexts(); 
+    timerText.setCharacterSize(size);
+    setupTexts();
 }
 
 void Scoreboard::setSpriteScale(float scale) {
@@ -154,11 +278,11 @@ void Scoreboard::setSpriteSpacing(float spacing) {
     spriteSpacing = spacing;
 }
 
-
 bool Scoreboard::loadFont(const std::string& fontPath) {
     if (font.openFromFile(fontPath)) {
         scoreText.setFont(font);
         levelText.setFont(font);
+        timerText.setFont(font);
         return true;
     }
     std::cerr << "Error: Could not load font from " << fontPath << std::endl;
@@ -177,5 +301,4 @@ bool Scoreboard::loadPlayerTexture(const std::string& texturePath) {
 void Scoreboard::setPlayerTexture(const sf::Texture& texture) {
     playerTexture = texture;
     playerSprite.setTexture(playerTexture);
-
 }

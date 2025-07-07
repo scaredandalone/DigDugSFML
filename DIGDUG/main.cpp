@@ -5,8 +5,8 @@ int main()
 {
     Game game;
 
-    if (!game.initialize()) {
-        std::cerr << "Failed to initialize game!" << std::endl;
+    if (!game.initialise()) {
+        std::cerr << "Failed to initialise game!" << std::endl;
         return -1;
     }
 

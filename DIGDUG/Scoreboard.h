@@ -13,6 +13,8 @@ private:
     sf::Font font;
     sf::Text scoreText;
     sf::Text levelText;
+    sf::Text timerText;  // New timer text
+
     sf::RectangleShape background;
 
     sf::Texture playerTexture;
@@ -27,9 +29,18 @@ private:
     float spriteScale;
     float spriteSpacing;
 
+    // Timer variables
+    sf::Clock levelClock;
+    sf::Time pausedTime;
+    float levelTimeLimit;      // Time limit for the level (in seconds)
+    bool timerRunning;
+    bool timerExpired;
+    bool timerPaused;
+
     void setupTexts();
     void setupBackground();
     void updateLifeSprites(int lives);
+    void updateTimer();        // New timer update method
 
 public:
     Scoreboard();
@@ -39,6 +50,17 @@ public:
     void update(const Player& player, const StageManager& stageManager);
     void render(sf::RenderWindow& window);
 
+    // Timer methods
+    void startTimer(float timeLimitSeconds = 60.0f);
+    void stopTimer();
+    void resetTimer();
+    void pauseTimer();
+    void resumeTimer();
+    float getRemainingTime() const;
+    float getElapsedTime() const;
+    bool isTimerExpired() const;
+    bool isTimerRunning() const;
+
     // Setters for customization
     void setPosition(sf::Vector2f pos);
     void setTextColor(sf::Color color);
@@ -46,6 +68,7 @@ public:
     void setFontSize(unsigned int size);
     void setSpriteScale(float scale);
     void setSpriteSpacing(float spacing);
+    void setTimerLimit(float seconds);
 
     // Asset loading methods
     bool loadFont(const std::string& fontPath);

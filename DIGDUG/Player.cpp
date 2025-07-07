@@ -13,7 +13,9 @@ currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture), map(gameMap), createT
 harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND),
 MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC),
 RareMovementMusic("Assets/Sounds/Music/walkingrare.mp3", SFX::Type::MUSIC),
-harpoonTimer(0), isPlayingRareMusic(false)
+fastMovementMusic("Assets/Sounds/Music/walkingfast.mp3", SFX::Type::MUSIC),
+fasterMovementMusic("Assets/Sounds/Music/walkingfaster.mp3", SFX::Type::MUSIC),
+harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true)
 {
 }
 
@@ -47,12 +49,17 @@ void Player::Load() {
     animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y, true);
 
     MovementMusic.setVolume(30);
-    MovementMusic.setLoop(false);
+    MovementMusic.setLoop(true); 
     harpoonSound.setVolume(10);
 
-   
     RareMovementMusic.setVolume(30);
-    RareMovementMusic.setLoop(false);
+    RareMovementMusic.setLoop(true); 
+
+    fastMovementMusic.setVolume(60);
+    fastMovementMusic.setLoop(true); 
+
+    fasterMovementMusic.setVolume(60);
+    fasterMovementMusic.setLoop(true); 
 
 }
 
@@ -70,73 +77,96 @@ void Player::setPosition(sf::Vector2f pos) {
 }
 
 void Player::startMovementMusic() {
-    if (!isPlayingRareMusic) {
-        // Start or resume normal music
-        if (MovementMusic.isPlaying() == true) {
-            MovementMusic.play(); // Resume from where it was paused
-            std::cout << "Resumed normal movement music" << std::endl;
-        }
-        else {
-            MovementMusic.play(); // Start from beginning
-            std::cout << "Started normal movement music" << std::endl;
-        }
+    if (!isMoving || !shouldPlayMovementMusic) return;
+
+    // Check if any music is already playing to avoid interrupting a looping track
+    if (MovementMusic.isPlaying() || RareMovementMusic.isPlaying() ||
+        fastMovementMusic.isPlaying() || fasterMovementMusic.isPlaying()) {
+        return; 
+    }
+
+    if (playFasterMusic) {
+        fasterMovementMusic.play();
+        std::cout << "Started faster movement music" << std::endl;
+    }
+    else if (playFastMusic) {
+        fastMovementMusic.play();
+        std::cout << "Started fast movement music" << std::endl;
+    }
+    else if (isPlayingRareMusic) {
+        RareMovementMusic.play();
+        std::cout << "Started rare movement music" << std::endl;
     }
     else {
-        // Start or resume rare music
-        if (RareMovementMusic.isPlaying() == true) {
-            RareMovementMusic.play(); // Resume from where it was paused
-            std::cout << "Resumed rare movement music" << std::endl;
-        }
-        else {
-            RareMovementMusic.play(); // Start from beginning
-            std::cout << "Started rare movement music" << std::endl;
-        }
+        MovementMusic.play();
+        std::cout << "Started normal movement music" << std::endl;
     }
 }
+
 void Player::stopMovementMusic() {
-    if (MovementMusic.isPlaying() == true) {
+    if (MovementMusic.isPlaying()) {
         MovementMusic.pause();
         std::cout << "Paused normal movement music" << std::endl;
     }
-    if (RareMovementMusic.isPlaying() == true) {
+    if (RareMovementMusic.isPlaying()) {
         RareMovementMusic.pause();
         std::cout << "Paused rare movement music" << std::endl;
+    }
+    if (fastMovementMusic.isPlaying()) {
+        fastMovementMusic.pause();
+        std::cout << "Paused fast movement music" << std::endl;
+    }
+    if (fasterMovementMusic.isPlaying()) {
+        fasterMovementMusic.pause();
+        std::cout << "Paused faster movement music" << std::endl;
     }
 }
 
 void Player::updateMovementMusic(float deltaTime) {
-    if (!isMoving) return; // Only update music logic when moving
+    if (!isMoving || !shouldPlayMovementMusic) {
+        stopMovementMusic();
+        return;
+    }
 
-    if (isPlayingRareMusic) {
-        // Check if rare music has finished
-        if (RareMovementMusic.isPlaying() == false) {
-            // Rare music finished, switch back to normal
-            isPlayingRareMusic = false;
-            std::cout << "Rare music finished, switching back to normal music" << std::endl;
-
-            // Resume normal music from where it was paused
-            if (MovementMusic.isPlaying() == false) {
-                MovementMusic.play();
-            }
-            else {
-                MovementMusic.play(); // Start from beginning if needed
-            }
+    if (playFasterMusic) {
+        if (!fasterMovementMusic.isPlaying()) {
+            stopMovementMusic(); 
+            fasterMovementMusic.play();
+            std::cout << "Playing faster movement music (timer-based)" << std::endl;
+        }
+    }
+    else if (playFastMusic) {
+        if (!fastMovementMusic.isPlaying()) {
+            stopMovementMusic(); 
+            fastMovementMusic.play();
+            std::cout << "Playing fast movement music (timer-based)" << std::endl;
         }
     }
     else {
-        // Check if normal music has finished
-        if (MovementMusic.isPlaying() == false) {
-            // Normal music finished, decide what to play next
-            if (static_cast<float>(rand()) / RAND_MAX < RARE_MUSIC_CHANCE) {
-                // Play rare music
-                isPlayingRareMusic = true;
-                RareMovementMusic.play();
-                std::cout << "Normal music finished, switching to rare music" << std::endl;
-            }
-            else {
-                // Loop normal music
+        if (isPlayingRareMusic) {
+            if (!RareMovementMusic.isPlaying()) {
+                // Rare music finished, switch back to normal
+                isPlayingRareMusic = false;
+                stopMovementMusic(); 
                 MovementMusic.play();
-                std::cout << "Normal music finished, looping normal music" << std::endl;
+                std::cout << "Rare music finished, switching back to normal music" << std::endl;
+            }
+        }
+        else {
+            // Check if normal music has finished
+            if (!MovementMusic.isPlaying()) {
+                // Decide whether to play rare music (the chance is here)
+                if (static_cast<float>(rand()) / RAND_MAX < RARE_MUSIC_CHANCE) {
+                    isPlayingRareMusic = true;
+                    stopMovementMusic();
+                    RareMovementMusic.play();
+                    std::cout << "Normal music finished, switching to rare music" << std::endl;
+                }
+                else {
+                    stopMovementMusic(); 
+                    MovementMusic.play();
+                    std::cout << "Normal music finished, looping normal music" << std::endl;
+                }
             }
         }
     }
@@ -175,9 +205,13 @@ void Player::Update(float deltaTime, sf::Vector2f playerPosition) {
 }
 
 void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
-    if (MovementMusic.isPlaying() || RareMovementMusic.isPlaying()) {
+    if (MovementMusic.isPlaying() || RareMovementMusic.isPlaying() || fastMovementMusic.isPlaying() || fasterMovementMusic.isPlaying()) {
         MovementMusic.stop();
-        RareMovementMusic.stop(); 
+        RareMovementMusic.stop();
+        fastMovementMusic.stop();
+        fasterMovementMusic.stop();
+        playFasterMusic = false;
+        playFastMusic = false;
         isPlayingRareMusic = false;
         std::cout << "Music reset in START state" << std::endl;
     }
@@ -308,7 +342,7 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
     if (isShooting) {
         updateShooting(deltaTime);
     }
-    bool movementAttemptedThisFrame = false; 
+    bool movementAttemptedThisFrame = false;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
         movementAttemptedThisFrame = true;
     }
@@ -424,7 +458,7 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
 
 void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
     resetTransform();
-    stopMovementMusic(); 
+    stopMovementMusic();
     animation->Update(0, 0, sprite);
     // Stop any ongoing shooting
     if (isShooting) {
@@ -451,7 +485,7 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
         deathAnimationStarted = true;
         std::cout << "Death animation started" << std::endl;
     }
-    stopMovementMusic(); 
+    stopMovementMusic();
 
     // Always try to update the animation
     animation->Update(2, deltaTime, sprite);
@@ -657,4 +691,45 @@ void Player::DetachHarpoon() {
 void Player::resetDeathAnimation() {
     deathAnimationStarted = false;
     std::cout << "Death animation reset" << std::endl;
+}
+
+void Player::resetMusic(Reason reason) {
+    stopMovementMusic();
+
+    isPlayingRareMusic = false;
+    playFastMusic = false;
+    playFasterMusic = false;
+
+    
+    switch (reason) {
+    case Reason::DEFAULT:
+        // No flags set, default to normal music
+        if (isMoving && shouldPlayMovementMusic) {
+            MovementMusic.play();
+            std::cout << "Music reset to default normal music" << std::endl;
+        }
+        break;
+    case Reason::LAST_ENEMY:
+        // For last enemy, use fast music (same as THIRTY_SECONDS)
+        playFastMusic = true;
+        if (isMoving && shouldPlayMovementMusic) {
+            fastMovementMusic.play();
+            std::cout << "Music reset to fast music due to LAST_ENEMY" << std::endl;
+        }
+        break;
+    case Reason::THIRTY_SECONDS:
+        playFastMusic = true;
+        if (isMoving && shouldPlayMovementMusic) {
+            fastMovementMusic.play();
+            std::cout << "Music reset to fast music due to THIRTY_SECONDS" << std::endl;
+        }
+        break;
+    case Reason::FIFTEEN_SECONDS:
+        playFasterMusic = true;
+        if (isMoving && shouldPlayMovementMusic) {
+            fasterMovementMusic.play();
+            std::cout << "Music reset to faster music due to FIFTEEN_SECONDS" << std::endl;
+        }
+        break;
+    }
 }

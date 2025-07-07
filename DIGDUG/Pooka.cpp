@@ -7,7 +7,7 @@
 #include "Player.h"
 
 Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sf::Vector2i(16, 16), 300),
-health(4), speed(15.0f), status(0), sprite(texture), pumpSound(pumpBuffer), map(gameMap), player(player) {
+health(4), speed(25.0f), status(0), sprite(texture), pumpSound(pumpBuffer), map(gameMap), player(player) {
 
 }
 
@@ -62,7 +62,6 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
-
     if (pumpCooldownTimer > 0.0f) {
         pumpCooldownTimer -= deltaTime;
     }
@@ -77,129 +76,147 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
 
             if (movementTimer >= movementDelay) {
                 movementTimer = 0.0f;
-                movementDelay = 0.3f + static_cast<float>(rand()) / RAND_MAX * 0.7f;
+                movementDelay = 0.0f;
 
                 sf::Vector2f directionToPlayer = playerPosition - currentPosition;
                 bool foundValidMove = false;
 
                 if (status == 1) {
-                    // Ghost mode - move directly toward player
-                    if (abs(directionToPlayer.y) >= abs(directionToPlayer.x)) {
-                        if (directionToPlayer.y < 0) {
-                            newTarget.y -= TILE_SIZE;
-                            sprite.setScale(sf::Vector2f(1, 1));
+                    // Ghost mode - move directly toward ghostTarget (set when entering ghost mode)
+                    sf::Vector2f directionToGhost = ghostTarget - currentPosition;
+                    
+                    // Choose the axis with the larger distance to move along
+                    if (abs(directionToGhost.x) >= abs(directionToGhost.y)) {
+                        // Move horizontally first
+                        if (directionToGhost.x < 0) {
+                            newTarget.x -= TILE_SIZE;
+                            sprite.setScale(sf::Vector2f(-1, 1));
                         }
-                        else {
-                            newTarget.y += TILE_SIZE;
+                        else if (directionToGhost.x > 0) {
+                            newTarget.x += TILE_SIZE;
                             sprite.setScale(sf::Vector2f(1, 1));
                         }
                     }
                     else {
-                        if (directionToPlayer.x < 0) {
-                            newTarget.x -= TILE_SIZE;
-                            sprite.setScale(sf::Vector2f(-1, 1));
+                        // Move vertically
+                        if (directionToGhost.y < 0) {
+                            newTarget.y -= TILE_SIZE;
+                            sprite.setScale(sf::Vector2f(1, 1));
                         }
-                        else {
-                            newTarget.x += TILE_SIZE;
+                        else if (directionToGhost.y > 0) {
+                            newTarget.y += TILE_SIZE;
                             sprite.setScale(sf::Vector2f(1, 1));
                         }
                     }
                     foundValidMove = true;
                 }
                 else {
-                    // pathfinding logic
+                    // Normal mode - pathfinding logic
                     int currentTileType = map->getTileAt(currentPosition.x, currentPosition.y);
                     int playerTileType = map->getTileAt(playerPosition.x, playerPosition.y);
 
                     bool canSeePlayer = (currentTileType == 0 && playerTileType == 0);
 
                     if (canSeePlayer) {
-                        // Pathfind toward player
-                        if (abs(directionToPlayer.y) > TILE_SIZE / 2) {
-                            if (directionToPlayer.y < 0) {
-                                newTarget.y -= TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                 
-                                    foundValidMove = true;
+                        // Pathfind toward player - try both axes and choose the one with larger distance
+                        bool tryVerticalFirst = (abs(directionToPlayer.y) >= abs(directionToPlayer.x));
+                        
+                        if (tryVerticalFirst) {
+                            // Try vertical movement first
+                            if (abs(directionToPlayer.y) > TILE_SIZE / 2) {
+                                if (directionToPlayer.y < 0) {
+                                    newTarget.y -= TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
+                                }
+                                else if (directionToPlayer.y > 0) {
+                                    newTarget.y += TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
                                 }
                             }
-                            else {
-                                newTarget.y += TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                   
-                                    foundValidMove = true;
+                            
+                            // If vertical failed, try horizontal
+                            if (!foundValidMove && abs(directionToPlayer.x) > TILE_SIZE / 2) {
+                                newTarget = targetPosition;
+                                if (directionToPlayer.x < 0) {
+                                    newTarget.x -= TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
                                 }
-                            }
-                        }
-
-                        if (!foundValidMove && abs(directionToPlayer.x) > TILE_SIZE / 2) {
-                            newTarget = targetPosition;
-                            if (directionToPlayer.x < 0) {
-                                newTarget.x -= TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                    
-                                    foundValidMove = true;
-                                }
-                            }
-                            else {
-                                newTarget.x += TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                    
-                                    foundValidMove = true;
-                                }
-                            }
-                        }
-
-                        if (!foundValidMove && stuckTimer >= ghostModeDelay) {
-                            sf::Vector2f bestMove = targetPosition;
-                            if (abs(directionToPlayer.y) >= abs(directionToPlayer.x)) {
-                                bestMove.y += (directionToPlayer.y < 0) ? -TILE_SIZE : TILE_SIZE;
-                            }
-                            else {
-                                bestMove.x += (directionToPlayer.x < 0) ? -TILE_SIZE : TILE_SIZE;
-                            }
-
-                            if (!canMoveTo(bestMove)) {
-                                status = 1;
-                                stuckTimer = 0.0f;
-                                foundValidMove = true;
-                            }
-                        }
-                    }
-
-                    // Random movement if no valid pathfinding move
-                    if (!foundValidMove) {
-                        newTarget = targetPosition;
-                        if (rand() % 2 == 0) {
-                            newTarget.y -= TILE_SIZE;
-                            if (canMoveTo(newTarget)) {
-                                
-                                foundValidMove = true;
-                            }
-                            else {
-                                newTarget.y = targetPosition.y + TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                    
-                                    foundValidMove = true;
+                                else if (directionToPlayer.x > 0) {
+                                    newTarget.x += TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
                                 }
                             }
                         }
                         else {
-                            newTarget.y += TILE_SIZE;
-                            if (canMoveTo(newTarget)) {
-                                
-                                foundValidMove = true;
+                            // Try horizontal movement first
+                            if (abs(directionToPlayer.x) > TILE_SIZE / 2) {
+                                if (directionToPlayer.x < 0) {
+                                    newTarget.x -= TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
+                                }
+                                else if (directionToPlayer.x > 0) {
+                                    newTarget.x += TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
+                                }
                             }
-                            else {
-                                newTarget.y = targetPosition.y - TILE_SIZE;
-                                if (canMoveTo(newTarget)) {
-                                   
-                                    foundValidMove = true;
+                            
+                            // If horizontal failed, try vertical
+                            if (!foundValidMove && abs(directionToPlayer.y) > TILE_SIZE / 2) {
+                                newTarget = targetPosition;
+                                if (directionToPlayer.y < 0) {
+                                    newTarget.y -= TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
+                                }
+                                else if (directionToPlayer.y > 0) {
+                                    newTarget.y += TILE_SIZE;
+                                    if (canMoveTo(newTarget)) {
+                                        foundValidMove = true;
+                                    }
                                 }
                             }
                         }
+
+                        // If still stuck after trying both directions, enter ghost mode
+                        if (!foundValidMove && stuckTimer >= ghostModeDelay) {
+                            // Set ghost target to a tunnel connected to the player
+                            ghostTarget = findNearestTunnelToPlayer(playerPosition);
+                            status = 1; // Enter ghost mode
+                            stuckTimer = 0.0f;
+                            foundValidMove = true;
+                        }
                     }
-                }
+
+                    // Random movement if no valid pathfinding move and not seeing player
+                    if (!foundValidMove && !canSeePlayer) {
+                        newTarget = targetPosition;
+
+                        // Try to move up first, then down
+                        newTarget.y -= TILE_SIZE;
+                        if (canMoveTo(newTarget)) {
+                            foundValidMove = true;
+                        }
+                        else {
+                            newTarget.y = targetPosition.y + TILE_SIZE;
+                            if (canMoveTo(newTarget)) {
+                                foundValidMove = true;
+                            }
+                        }
+                    }
+                    }
 
                 if (foundValidMove && newTarget != targetPosition) {
                     targetPosition = newTarget;
@@ -217,10 +234,11 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                 sprite.setPosition(targetPosition);
                 isMoving = false;
 
+                // Check if we should exit ghost mode
                 if (status == 1) {
                     int tileType = map->getTileAt(targetPosition.x, targetPosition.y);
-                    if (tileType == 0) {
-                        status = 0;
+                    if (tileType == 0) { // Back in normal tunnel
+                        status = 0; // Exit ghost mode
                     }
                 }
             }
@@ -232,10 +250,11 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                     sprite.setPosition(targetPosition);
                     isMoving = false;
 
+                    // Check if we should exit ghost mode
                     if (status == 1) {
                         int tileType = map->getTileAt(targetPosition.x, targetPosition.y);
-                        if (tileType == 0) {
-                            status = 0;
+                        if (tileType == 0) { // Back in normal tunnel
+                            status = 0; // Exit ghost mode
                         }
                     }
                 }
@@ -246,6 +265,8 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                 }
             }
         }
+        
+        // Update animation and hitbox
         if (isMoving) {
             if (status == 1) {
                 animation->Update(1, deltaTime, sprite);
@@ -262,6 +283,54 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
 
         hitbox.setPosition(sprite.getPosition());
     }
+}
+
+sf::Vector2f Pooka::findNearestTunnelToPlayer(sf::Vector2f playerPosition) {
+    sf::Vector2f bestTunnel = playerPosition;
+    float shortestDistance = std::numeric_limits<float>::max();
+    sf::Vector2f currentPos = sprite.getPosition();
+
+    // Define search directions (4-directional)
+    sf::Vector2f directions[] = {
+        {0.0f, -(float)TILE_SIZE}, {0.0f, (float)TILE_SIZE}, {-(float)TILE_SIZE, 0.0f}, {(float)TILE_SIZE, 0.0f}
+    };
+
+    // Simple expanding search - check tiles in rings around player
+    const int maxSearchDistance = 8;
+
+    for (int searchDistance = 1; searchDistance <= maxSearchDistance; searchDistance++) {
+        // Check all tiles at this distance from player
+        for (int x = -searchDistance; x <= searchDistance; x++) {
+            for (int y = -searchDistance; y <= searchDistance; y++) {
+                // Only check tiles on the edge of the current ring
+                if (abs(x) != searchDistance && abs(y) != searchDistance) continue;
+
+                sf::Vector2f checkPos = playerPosition + sf::Vector2f(x * TILE_SIZE, y * TILE_SIZE);
+
+                // Check if this position is a valid tunnel
+                int tileType = map->getTileAt(checkPos.x, checkPos.y);
+                if (tileType == 0) {
+                    // Calculate distance from Pooka to this tunnel
+                    float distance = std::sqrt(
+                        (checkPos.x - currentPos.x) * (checkPos.x - currentPos.x) +
+                        (checkPos.y - currentPos.y) * (checkPos.y - currentPos.y)
+                    );
+
+                    if (distance < shortestDistance) {
+                        shortestDistance = distance;
+                        bestTunnel = checkPos;
+                    }
+                }
+            }
+        }
+
+        // If we found a tunnel, we can stop searching
+        if (bestTunnel != playerPosition) {
+            break;
+        }
+    }
+
+    return bestTunnel;
 }
 
 bool Pooka::canMoveTo(sf::Vector2f position) {
@@ -368,9 +437,15 @@ void Pooka::setPosition(sf::Vector2f pos) {
     isMoving = false;
 }
 
+void Pooka::multiplySpeed(float multiple)
+{
+
+}
+
 void Pooka::Draw(sf::RenderWindow& window) {
     if (isAlive && health > 0) {
         window.draw(sprite);
         window.draw(hitbox);
     }
 }
+

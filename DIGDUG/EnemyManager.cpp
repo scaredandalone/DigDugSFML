@@ -238,3 +238,12 @@ void EnemyManager::KillAllEnemiesAt(sf::Vector2f position, float radius) {
         }
     }
 }
+
+void EnemyManager::setSpeedMultipler(float multiple)
+{
+    for (auto& enemy : enemies) {
+        if (enemy && enemy->isActive()) {
+            enemy->multiplySpeed(multiple);
+        }
+    }
+}

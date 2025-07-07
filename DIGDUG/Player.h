@@ -10,6 +10,14 @@ class GameState;
 class EnemyManager;
 class ScoreManager;
 
+
+enum class Reason {
+    DEFAULT,
+    LAST_ENEMY,
+    THIRTY_SECONDS,
+    FIFTEEN_SECONDS
+};
+
 class Player : public Entity {
 private:
     Map* map;
@@ -26,7 +34,12 @@ private:
     SFX harpoonSound;
 
     SFX RareMovementMusic;
+    SFX fastMovementMusic;
+    SFX fasterMovementMusic;
+
     bool isPlayingRareMusic;
+    bool playFastMusic = false;
+    bool playFasterMusic = false;
     static constexpr float RARE_MUSIC_CHANCE = 0.1f; // 10% chance of rare movement music after normal music ends.
 
     // enemy manager
@@ -77,6 +90,10 @@ private:
     void stopMovementMusic();
     void updateMovementMusic(float deltatime);
 
+    bool shouldPlayMovementMusic;
+
+
+
 public:
     Player(Map* gameMap);
     void Initialise() override;
@@ -123,4 +140,11 @@ public:
     int getLives() const { return lives; }
     void setLives(int life) { lives = life; }
     void resetDeathAnimation();
+
+    void setMovementMusicStatus(bool enabled) {
+        shouldPlayMovementMusic = enabled;
+    }
+    bool isPlayingFastMusic() const { return playFastMusic; }
+    bool isPlayingFasterMusic() const { return playFasterMusic; }
+    void resetMusic(Reason reason);
 };
