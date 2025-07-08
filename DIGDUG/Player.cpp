@@ -7,8 +7,8 @@
 #include "EnemyManager.h"
 
 Player::Player(Map* gameMap) : Entity(EntityType::PLAYER, true, sf::Vector2i(16, 16), 0),
-health(1), lives(1), score(2000), speed(40.0f), sprite(texture),
-isShooting(false), shootDirection(0, 0), harpoonSpeed(150.0f), maxHarpoonLength(32.0f),
+health(1), lives(2), score(2000), speed(40.0f), sprite(texture),
+isShooting(false), shootDirection(0, 0), harpoonSpeed(200.0f), maxHarpoonLength(32.0f),
 currentHarpoonLength(0.0f), harpoonSprite(harpoonTexture), map(gameMap), createTunnels(true),
 harpoonSound("Assets/Sounds/SFX/pump.mp3", SFX::Type::SOUND),
 MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC),
@@ -20,7 +20,6 @@ inflatingSound("Assets/Sounds/SFX/pumpmonster.mp3", SFX::Type::SOUND),
 harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true)
 {
 }
-
 void Player::Initialise() {
     Entity::Initialise();
     harpoonHitbox.setFillColor(sf::Color::Transparent);
@@ -52,11 +51,11 @@ void Player::Load() {
 
 
 
-    MovementMusic.setVolume(30);
+    MovementMusic.setVolume(25);
     MovementMusic.setLoop(true); 
     harpoonSound.setVolume(10);
 
-    RareMovementMusic.setVolume(30);
+    RareMovementMusic.setVolume(25);
     RareMovementMusic.setLoop(true); 
 
     fastMovementMusic.setVolume(60);
@@ -272,7 +271,7 @@ void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
         }
 
         move(deltaTime, speed, sprite);
-        animation->Update(0, deltaTime, sprite);
+        animation->Update(0, deltaTime * (speed / 10), sprite);
 
         if (!isMoving) {
             createTunnel(targetPosition);
@@ -325,17 +324,18 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
                 DetachHarpoon();
             }
 
-            // Animation update code...
-            animation->currentImage.x++;
-            if (animation->currentImage.x >= animation->imageCount.x) {
-                animation->currentImage.x = 0;
-            }
-            animation->currentImage.y = 1;
-            animation->uvRect.position = sf::Vector2i(animation->currentImage.x * animation->uvRect.size.x,
-                animation->currentImage.y * animation->uvRect.size.y);
-            sprite.setTextureRect(animation->uvRect);
+
+            animation->Update(1, deltaTime, sprite);
+           // animation->currentImage.x++;
+           //if (animation->currentImage.x >= animation->imageCount.x) {
+           //    animation->currentImage.x = 0;
+           //}
+           //animation->currentImage.y = 1;
+           //animation->uvRect.position = sf::Vector2i(animation->currentImage.x * animation->uvRect.size.x,
+           //    animation->currentImage.y * animation->uvRect.size.y);
+           //sprite.setTextureRect(animation->uvRect);
         }
-        else if (!isShooting && !isMoving && !isImmobilized) {
+        if (!isShooting && !isMoving && !isImmobilized) {
             harpoonSound.play();
             startShooting();
         }
@@ -445,7 +445,7 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
         }
 
         move(deltaTime, speed, sprite);
-        animation->Update(0, deltaTime, sprite);
+        animation->Update(0, deltaTime * (speed / 10), sprite);
         if (!isMoving) {
             createTunnel(targetPosition);
         }

@@ -39,13 +39,13 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
     if (health <= 0 || !isAlive) return;
 
     // Handle pump state deflation
-    if (harpoonStuck) { 
+    if (harpoonStuck) {
         pumpTimer += deltaTime;
         if (pumpTimer >= PUMP_DURATION) {
             if (pumpState > 0) { // Only deflate if pumpState is greater than 0
                 pumpState = std::max(0, pumpState - 1); // Deflate one level
                 std::cout << "Pooka deflated to state: " << pumpState << std::endl;
-               
+
                 if (pumpState == 0) {
                     if (health < 4) { // Assuming 4 is max health
                         health += 1;
@@ -84,7 +84,7 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                 if (status == 1) {
                     // Ghost mode - move directly toward ghostTarget (set when entering ghost mode)
                     sf::Vector2f directionToGhost = ghostTarget - currentPosition;
-                    
+
                     // Choose the axis with the larger distance to move along
                     if (abs(directionToGhost.x) >= abs(directionToGhost.y)) {
                         // Move horizontally first
@@ -112,111 +112,110 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                 }
                 else {
                     // Normal mode - pathfinding logic
-                    int currentTileType = map->getTileAt(currentPosition.x, currentPosition.y);
-                    int playerTileType = map->getTileAt(playerPosition.x, playerPosition.y);
+                    // Pooka ALWAYS sees the player and tries to move toward them
 
-                    bool canSeePlayer = (currentTileType == 0 && playerTileType == 0);
+                    // Simple greedy pathfinding - always move closer to player
+                    sf::Vector2f horizontalTarget = targetPosition;
+                    sf::Vector2f verticalTarget = targetPosition;
 
-                    if (canSeePlayer) {
-                        // Pathfind toward player - try both axes and choose the one with larger distance
-                        bool tryVerticalFirst = (abs(directionToPlayer.y) >= abs(directionToPlayer.x));
-                        
-                        if (tryVerticalFirst) {
-                            // Try vertical movement first
-                            if (abs(directionToPlayer.y) > TILE_SIZE / 2) {
-                                if (directionToPlayer.y < 0) {
-                                    newTarget.y -= TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                                else if (directionToPlayer.y > 0) {
-                                    newTarget.y += TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                            }
-                            
-                            // If vertical failed, try horizontal
-                            if (!foundValidMove && abs(directionToPlayer.x) > TILE_SIZE / 2) {
-                                newTarget = targetPosition;
-                                if (directionToPlayer.x < 0) {
-                                    newTarget.x -= TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                                else if (directionToPlayer.x > 0) {
-                                    newTarget.x += TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                            }
+                    bool canMoveHorizontal = false;
+                    bool canMoveVertical = false;
+
+                    // Check horizontal movement
+                    if (abs(directionToPlayer.x) > 1.0f) { // Small threshold to avoid jittering
+                        if (directionToPlayer.x < 0) {
+                            horizontalTarget.x -= TILE_SIZE;
+                            sprite.setScale(sf::Vector2f(-1, 1)); // Face left
                         }
                         else {
-                            // Try horizontal movement first
-                            if (abs(directionToPlayer.x) > TILE_SIZE / 2) {
-                                if (directionToPlayer.x < 0) {
-                                    newTarget.x -= TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                                else if (directionToPlayer.x > 0) {
-                                    newTarget.x += TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                            }
-                            
-                            // If horizontal failed, try vertical
-                            if (!foundValidMove && abs(directionToPlayer.y) > TILE_SIZE / 2) {
-                                newTarget = targetPosition;
-                                if (directionToPlayer.y < 0) {
-                                    newTarget.y -= TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                                else if (directionToPlayer.y > 0) {
-                                    newTarget.y += TILE_SIZE;
-                                    if (canMoveTo(newTarget)) {
-                                        foundValidMove = true;
-                                    }
-                                }
-                            }
+                            horizontalTarget.x += TILE_SIZE;
+                            sprite.setScale(sf::Vector2f(1, 1)); // Face right
                         }
-
-                        // If still stuck after trying both directions, enter ghost mode
-                        if (!foundValidMove && stuckTimer >= ghostModeDelay) {
-                            // Set ghost target to a tunnel connected to the player
-                            ghostTarget = findNearestTunnelToPlayer(playerPosition);
-                            status = 1; // Enter ghost mode
-                            stuckTimer = 0.0f;
-                            foundValidMove = true;
-                        }
+                        canMoveHorizontal = canMoveTo(horizontalTarget);
                     }
 
-                    // Random movement if no valid pathfinding move and not seeing player
-                    if (!foundValidMove && !canSeePlayer) {
-                        newTarget = targetPosition;
-
-                        // Try to move up first, then down
-                        newTarget.y -= TILE_SIZE;
-                        if (canMoveTo(newTarget)) {
-                            foundValidMove = true;
+                    // Check vertical movement
+                    if (abs(directionToPlayer.y) > 1.0f) { // Small threshold to avoid jittering
+                        if (directionToPlayer.y < 0) {
+                            verticalTarget.y -= TILE_SIZE;
                         }
                         else {
-                            newTarget.y = targetPosition.y + TILE_SIZE;
-                            if (canMoveTo(newTarget)) {
-                                foundValidMove = true;
+                            verticalTarget.y += TILE_SIZE;
+                        }
+                        canMoveVertical = canMoveTo(verticalTarget);
+                    }
+
+                    // Choose the move that gets us closer to the player
+                    if (canMoveHorizontal && canMoveVertical) {
+                        // Calculate distances for both options
+                        float horizontalDist = std::sqrt(
+                            (horizontalTarget.x - playerPosition.x) * (horizontalTarget.x - playerPosition.x) +
+                            (horizontalTarget.y - playerPosition.y) * (horizontalTarget.y - playerPosition.y)
+                        );
+                        float verticalDist = std::sqrt(
+                            (verticalTarget.x - playerPosition.x) * (verticalTarget.x - playerPosition.x) +
+                            (verticalTarget.y - playerPosition.y) * (verticalTarget.y - playerPosition.y)
+                        );
+
+                        if (horizontalDist < verticalDist) {
+                            newTarget = horizontalTarget;
+                        }
+                        else {
+                            newTarget = verticalTarget;
+                        }
+                        foundValidMove = true;
+                    }
+                    else if (canMoveHorizontal) {
+                        newTarget = horizontalTarget;
+                        foundValidMove = true;
+                    }
+                    else if (canMoveVertical) {
+                        newTarget = verticalTarget;
+                        foundValidMove = true;
+                    }
+
+                    // If no valid move toward player, patrol the tunnel
+                    if (!foundValidMove && stuckTimer < ghostModeDelay) {
+                        // Check all four directions for valid tunnel tiles
+                        std::vector<sf::Vector2f> possibleMoves;
+                        sf::Vector2f moves[4] = {
+                            sf::Vector2f(targetPosition.x + TILE_SIZE, targetPosition.y), // Right
+                            sf::Vector2f(targetPosition.x - TILE_SIZE, targetPosition.y), // Left
+                            sf::Vector2f(targetPosition.x, targetPosition.y + TILE_SIZE), // Down
+                            sf::Vector2f(targetPosition.x, targetPosition.y - TILE_SIZE)  // Up
+                        };
+
+                        for (const auto& move : moves) {
+                            if (canMoveTo(move) && map->getTileAt(move.x, move.y) == 0) {
+                                possibleMoves.push_back(move);
+                            }
+                        }
+
+                        // Choose a random valid tunnel move
+                        if (!possibleMoves.empty()) {
+                            int randomIndex = rand() % possibleMoves.size();
+                            newTarget = possibleMoves[randomIndex];
+                            foundValidMove = true;
+
+                            // Update sprite facing based on movement direction
+                            if (newTarget.x < targetPosition.x) {
+                                sprite.setScale(sf::Vector2f(-1, 1)); // Face left
+                            }
+                            else if (newTarget.x > targetPosition.x) {
+                                sprite.setScale(sf::Vector2f(1, 1)); // Face right
                             }
                         }
                     }
+
+                    // If still stuck after trying both directions and patrol, enter ghost mode
+                    if (!foundValidMove && stuckTimer >= ghostModeDelay) {
+                        // Set ghost target to the closest tunnel to Pooka that connects to player
+                        ghostTarget = findClosestTunnelToPooka(playerPosition);
+                        status = 1; // Enter ghost mode
+                        stuckTimer = 0.0f;
+                        foundValidMove = true;
                     }
+                }
 
                 if (foundValidMove && newTarget != targetPosition) {
                     targetPosition = newTarget;
@@ -265,15 +264,15 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
                 }
             }
         }
-        
+
         // Update animation and hitbox
         if (isMoving) {
             if (status == 1) {
-                animation->Update(1, deltaTime, sprite);
+                animation->Update(1, deltaTime * (speed / 20), sprite);
                 hitbox.setSize(sf::Vector2f(0, 0));
             }
             else {
-                animation->Update(0, deltaTime, sprite);
+                animation->Update(0, deltaTime * (speed / 20), sprite);
                 hitbox.setSize(sf::Vector2f(10.f, 10.f));
                 sf::Vector2f spriteCenter = sprite.getPosition() + sf::Vector2f(size.x / 2.f, size.y / 2.f);
                 hitbox.setOrigin(hitbox.getSize() / 2.f);
@@ -285,18 +284,14 @@ void Pooka::Update(float deltaTime, sf::Vector2f playerPosition) {
     }
 }
 
-sf::Vector2f Pooka::findNearestTunnelToPlayer(sf::Vector2f playerPosition) {
+sf::Vector2f Pooka::findClosestTunnelToPooka(sf::Vector2f playerPosition) {
     sf::Vector2f bestTunnel = playerPosition;
-    float shortestDistance = std::numeric_limits<float>::max();
+    float shortestDistanceToPooka = std::numeric_limits<float>::max();
     sf::Vector2f currentPos = sprite.getPosition();
 
-    // Define search directions (4-directional)
-    sf::Vector2f directions[] = {
-        {0.0f, -(float)TILE_SIZE}, {0.0f, (float)TILE_SIZE}, {-(float)TILE_SIZE, 0.0f}, {(float)TILE_SIZE, 0.0f}
-    };
-
-    // Simple expanding search - check tiles in rings around player
+    // First, find tunnels near the player (expanding search around player)
     const int maxSearchDistance = 8;
+    std::vector<sf::Vector2f> playerTunnels;
 
     for (int searchDistance = 1; searchDistance <= maxSearchDistance; searchDistance++) {
         // Check all tiles at this distance from player
@@ -310,23 +305,32 @@ sf::Vector2f Pooka::findNearestTunnelToPlayer(sf::Vector2f playerPosition) {
                 // Check if this position is a valid tunnel
                 int tileType = map->getTileAt(checkPos.x, checkPos.y);
                 if (tileType == 0) {
-                    // Calculate distance from Pooka to this tunnel
-                    float distance = std::sqrt(
-                        (checkPos.x - currentPos.x) * (checkPos.x - currentPos.x) +
-                        (checkPos.y - currentPos.y) * (checkPos.y - currentPos.y)
-                    );
-
-                    if (distance < shortestDistance) {
-                        shortestDistance = distance;
-                        bestTunnel = checkPos;
-                    }
+                    playerTunnels.push_back(checkPos);
                 }
             }
         }
 
-        // If we found a tunnel, we can stop searching
-        if (bestTunnel != playerPosition) {
+        // If we found some tunnels near the player, that's enough
+        if (!playerTunnels.empty()) {
             break;
+        }
+    }
+
+    // If no tunnels found near player, just use player position
+    if (playerTunnels.empty()) {
+        playerTunnels.push_back(playerPosition);
+    }
+
+    // Now find the tunnel from the player's area that's closest to the Pooka
+    for (const sf::Vector2f& tunnel : playerTunnels) {
+        float distance = std::sqrt(
+            (tunnel.x - currentPos.x) * (tunnel.x - currentPos.x) +
+            (tunnel.y - currentPos.y) * (tunnel.y - currentPos.y)
+        );
+
+        if (distance > TILE_SIZE && distance < shortestDistanceToPooka) { // Make sure it's not the same tunnel Pooka is in
+            shortestDistanceToPooka = distance;
+            bestTunnel = tunnel;
         }
     }
 

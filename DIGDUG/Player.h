@@ -10,7 +10,6 @@ class GameState;
 class EnemyManager;
 class ScoreManager;
 
-
 enum class Reason {
     DEFAULT,
     LAST_ENEMY,
@@ -48,10 +47,10 @@ private:
     EnemyManager* enemyManager = nullptr;
     std::shared_ptr<Entity> harpoonedEnemy = nullptr;
 
-    // Score manager - Add this
-    ScoreManager* scoreManager= nullptr;
+    // Score manager
+    ScoreManager* scoreManager = nullptr;
 
-    //shooting
+    // shooting
     bool isShooting;
     sf::Vector2f shootDirection;
     sf::Vector2f lastDirection;
@@ -67,13 +66,13 @@ private:
     sf::Sprite harpoonSprite;
     sf::RectangleShape harpoonHitbox;
     bool spaceKeyPressed = false;
-    // immobolisation
+    // immobilization
     bool isImmobilized = false;
     float immobilizationTimer = 0.0f;
     const float IMMOBILIZATION_DURATION = 0.25f;
     bool createTunnels = true;
-    //gameplay
 
+    // gameplay
     sf::Vector2f facingDirection;
     void startShooting();
     void updateShooting(float deltaTime);
@@ -93,8 +92,6 @@ private:
     void updateMovementMusic(float deltatime);
 
     bool shouldPlayMovementMusic;
-
-
 
 public:
     Player(Map* gameMap);
@@ -138,7 +135,7 @@ public:
         sprite.setRotation(sf::degrees(0));
         sprite.setScale({ 1, 1 });
     }
-    void setHealth(int hp) { health = hp; };
+    void setHealth(int hp) { health = hp; }
     int getLives() const { return lives; }
     void setLives(int life) { lives = life; }
     void resetDeathAnimation();
@@ -150,5 +147,4 @@ public:
     bool isPlayingFasterMusic() const { return playFasterMusic; }
     void resetMusic(Reason reason);
     void resetMusicForNewLevel();
-
 };

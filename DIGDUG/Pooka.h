@@ -22,7 +22,7 @@ private:
     float stuckTimer = 0.0f;
     float ghostModeDelay = 2.0f + static_cast<float>(rand()) / RAND_MAX * 5.0f;
     sf::Vector2f ghostTarget;
-    sf::Vector2f findNearestTunnelToPlayer(sf::Vector2f playerPosition);
+    sf::Vector2f findClosestTunnelToPooka(sf::Vector2f playerPosition);
 
     bool harpoonStuck = false;
     sf::SoundBuffer pumpBuffer;

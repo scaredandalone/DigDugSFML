@@ -300,6 +300,7 @@ void Game::initialiseStartScene()
     player->DetachHarpoon();
     player->SetCreateTunnels(false);
     player->setHealth(1);
+    player->resetMusic(Reason::DEFAULT);
 
     enemyManager->ClearAllEnemies();
     enemyManager->SpawnEnemiesFromMap();
@@ -312,6 +313,7 @@ void Game::initialiseStartScene()
     startPauseTimer = 0.0f;
     startPauseComplete = false;
     movingHorizontally = true;
+
 
     startMusic.play();
     std::cout << "START scene initialised: Player reset to (" << initialPos.x << ", " << initialPos.y << ")" << std::endl;
@@ -645,10 +647,13 @@ void Game::loadNextStage()
 void Game::restartCurrentStage()
 {
     std::cout << "Restarting current stage with " << player->getLives() << " lives remaining" << std::endl;
+    enemyManager->ClearAllEnemies();
+    enemyManager->SpawnEnemiesFromMap();
 }
 
 void Game::restartFromFirstStage()
 {
+    player->resetMusicForNewLevel();
     stageManager->setCurrentStage(0);
     map->setCurrentLevel(stageManager->getCurrentStage());
 
