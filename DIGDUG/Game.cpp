@@ -35,6 +35,12 @@ Game::Game()
     , newHighScoreText(font)
     , levelTimeLimit(40.0f)
     , timerEnabled(true)
+    , currentTimerPhase(TimerPhase::NORMAL)
+    , lastEnemySoundPlayed(false)
+    , lastEnemySoundPlaying(false)
+    , lastEnemySoundTimer(0.0f)
+    , lowTimeSoundPlayed(false)
+    , lowTimeSoundPlaying(false)
 {
 }
 
@@ -285,6 +291,7 @@ void Game::initialiseStartScene()
     }
 
     calculateStartMovement();
+    currentTimerPhase = TimerPhase::NORMAL;
 
     player->setPosition(initialPos);
     player->setPlayerInitialPosition(initialPos);
@@ -293,10 +300,10 @@ void Game::initialiseStartScene()
     player->DetachHarpoon();
     player->SetCreateTunnels(false);
     player->setHealth(1);
-    player->resetMusic(Reason::DEFAULT);
 
     enemyManager->ClearAllEnemies();
     enemyManager->SpawnEnemiesFromMap();
+    enemyManager->setSpeedMultipler(1.0f);
 
     startSceneStep = 0;
     startMovementComplete = false;
@@ -308,6 +315,8 @@ void Game::initialiseStartScene()
 
     startMusic.play();
     std::cout << "START scene initialised: Player reset to (" << initialPos.x << ", " << initialPos.y << ")" << std::endl;
+    std::cout << "START scene initialised: Timer phase reset to NORMAL" << std::endl;
+    std::cout << "START scene initialised: ENEMY speed set to default" << std::endl;
 }
 
 void Game::updateStartMovement(float deltaTime)
@@ -390,11 +399,9 @@ void Game::updateGameState(float deltaTime)
         return;
     }
 
-    // Check timer phases
+    // Check timer phases - now using class members instead of static variables
     if (timerEnabled) {
         float remainingTime = scoreboard->getRemainingTime();
-        static bool lowTimeSoundPlayed = false;
-        static bool lowTimeSoundPlaying = false;
 
         if (remainingTime <= 15.0f && currentTimerPhase != TimerPhase::FIFTEEN_SECONDS && !lowTimeSoundPlayed && !lowTimeSoundPlaying) {
             // Pause player movement music before playing low time sound
@@ -412,7 +419,6 @@ void Game::updateGameState(float deltaTime)
             if (lowTimeDelayTimer >= LOWTIME_DELAY || !lowTimeSound.isPlaying()) {
                 lowTimeSoundPlaying = false;
                 player->setMovementMusicStatus(true);
-                // Resume music based on current timer phase
                 player->resetMusic(Reason::FIFTEEN_SECONDS);
                 enemyManager->setSpeedMultipler(1.8);
                 currentTimerPhase = TimerPhase::FIFTEEN_SECONDS;
@@ -421,12 +427,13 @@ void Game::updateGameState(float deltaTime)
         }
         else if (remainingTime <= 30.0f && currentTimerPhase == TimerPhase::NORMAL) {
             enemyManager->setSpeedMultipler(1.5);
-            player->resetMusic(Reason::THIRTY_SECONDS);
             currentTimerPhase = TimerPhase::THIRTY_SECONDS;
+            if(!lastEnemySoundPlayed)
+                player->resetMusic(Reason::THIRTY_SECONDS);
             std::cout << "Timer phase changed to THIRTY_SECONDS" << std::endl;
         }
 
-        // Reset low time sound flags if timer goes above 15 seconds (e.g., due to a reset)
+        // Reset low time sound flags if timer goes above 15 seconds
         if (remainingTime > 15.0f) {
             lowTimeSoundPlayed = false;
             lowTimeSoundPlaying = false;
@@ -447,7 +454,7 @@ void Game::updateGameState(float deltaTime)
     // Track last enemy sound playback
     if (lastEnemySoundPlaying) {
         lastEnemySoundTimer += deltaTime;
-        if (lastEnemySoundTimer >= lastEnemySoundDuration || !lastEnemySound.isPlaying()) {
+        if (lastEnemySoundTimer >= LASTENEMY_DURATION || !lastEnemySound.isPlaying()) {
             lastEnemySoundPlaying = false;
             player->setMovementMusicStatus(true);
             // Resume music based on current timer phase
@@ -612,6 +619,7 @@ void Game::initialiseHighScoreScene()
 
 void Game::loadNextStage()
 {
+    player->resetMusicForNewLevel();
     stageManager->incrementStage();
     map->setCurrentLevel(stageManager->getCurrentStage());
 

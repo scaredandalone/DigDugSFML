@@ -1,18 +1,18 @@
 #include "Entity.h"
 #include "Map.h"
-#include "SFX.h"
 #include <iostream>
 #include <cmath>
 
 EntityID Entity::nextID = 0;
 
 Entity::Entity(EntityType t, bool alive, sf::Vector2i size, int scoreawarded)
-    : type(t), isAlive(alive), size(size), isMoving(false), targetPosition(0, 0), scoreAwarded(scoreawarded) {
+    : type(t), isAlive(alive), size(size), isMoving(false), targetPosition(0, 0), scoreAwarded(scoreawarded), speed(25.0f)
+{
     hitbox.setSize(sf::Vector2f(size.x -6, size.y-6));
     hitbox.setFillColor(sf::Color::Transparent);
     hitbox.setOutlineColor(sf::Color::Red);
     hitbox.setOutlineThickness(1)
-    ;
+        ;
 }
 
 Entity::~Entity() {

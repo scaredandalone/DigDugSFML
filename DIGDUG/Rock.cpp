@@ -13,7 +13,10 @@ Rock::Rock(Map* gameMap, EnemyManager* em, Player* p, sf::Vector2f pos, sf::Vect
     destroyAnimationStarted(false), destroyAnimationComplete(false),
     tileSprite(tileTexture), rockSprite(rockTexture), tileTypeTextureIndex(-1),
     shakeTimer(0.0f), isShaking(false), destroyTimer(0.0f),
-    markedForDeletion(false)
+    markedForDeletion(false),
+    rockFall("Assets/Sounds/SFX/rockdrop.mp3", SFX::Type::SOUND),
+    rockKill("Assets/Sounds/SFX/rockkill.mp3", SFX::Type::SOUND),
+    rockHitGround("Assets/Sounds/SFX/rockhitground.mp3", SFX::Type::SOUND)
 {
     setPosition(pos);
 }
@@ -23,6 +26,9 @@ void Rock::Initialise() {
     hitbox.setSize(sf::Vector2f(TILE_SIZE, TILE_SIZE));
     hitbox.setOrigin(sf::Vector2f(TILE_SIZE / 2.0f, TILE_SIZE / 2.0f));
     hitbox.setPosition(getPosition());
+    rockHitGround.setVolume(15);
+    rockFall.setVolume(95);
+    rockKill.setVolume(100);
 }
 
 void Rock::Load() {
@@ -99,6 +105,7 @@ void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
             isFalling = true;
             isShaking = false;
             std::cout << "Rock started falling!" << std::endl;
+            rockFall.play();
         }
     }
     else if (tileBelowType > 0) { // Changed condition to check for solid tiles (> 0)
@@ -109,6 +116,7 @@ void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
             // Mark as dead and start destroy animation immediately
             isAlive = false;
             startDestroyAnimation(deltaTime);
+            rockHitGround.play();
         }
         fallTimer = 0.0f;
         isShaking = false;
@@ -183,6 +191,7 @@ void Rock::checkAndSquashEntities() {
             if (player->getLives() > 0) {
                 player->setLives(player->getLives() - 1);
             }
+            rockKill.play();
             hasSquashedSomething = true;
         }
     }
@@ -195,6 +204,7 @@ void Rock::checkAndSquashEntities() {
                     std::cout << "Rock squashed an enemy!" << std::endl;
                     enemy->setActive(false);
                     hasSquashedSomething = true;
+                    rockKill.play();
                 }
             }
         }

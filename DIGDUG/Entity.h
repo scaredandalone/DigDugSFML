@@ -2,6 +2,8 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include "Animation.h"
+#include "SFX.h"
+
 
 using EntityID = uint32_t;
 constexpr EntityID INVALID_ENTITY = 0;
@@ -22,6 +24,7 @@ protected:
     std::unique_ptr<Animation> animation;
     float speed;
     int scoreAwarded;
+
 
 
 

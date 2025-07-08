@@ -36,6 +36,8 @@ private:
     SFX RareMovementMusic;
     SFX fastMovementMusic;
     SFX fasterMovementMusic;
+    SFX popSound;
+    SFX inflatingSound;
 
     bool isPlayingRareMusic;
     bool playFastMusic = false;
@@ -147,4 +149,6 @@ public:
     bool isPlayingFastMusic() const { return playFastMusic; }
     bool isPlayingFasterMusic() const { return playFasterMusic; }
     void resetMusic(Reason reason);
+    void resetMusicForNewLevel();
+
 };

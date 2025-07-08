@@ -59,13 +59,18 @@ private:
     
     bool lastEnemySoundPlayed = false;
     bool lastEnemySoundPlaying = false;
-    float lastEnemySoundDuration = 2.2f; 
     float lastEnemySoundTimer = 0.0f;
+
+    bool lowTimeSoundPlayed;
+    bool lowTimeSoundPlaying;
+
+
 
     // Constants
     static constexpr float START_DELAY = 8.0f;
     static constexpr float WIN_DELAY = 3.0f;
     static constexpr float START_PAUSE_DELAY = 1.0f;
+    static constexpr float LASTENEMY_DURATION = 2.2f;
 
     static constexpr float LOSS_DELAY = 3.0f;
     static constexpr float NOLIVES_DELAY = 6.0f;

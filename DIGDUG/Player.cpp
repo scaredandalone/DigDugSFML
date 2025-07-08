@@ -15,6 +15,8 @@ MovementMusic("Assets/Sounds/Music/walkingnormal.mp3", SFX::Type::MUSIC),
 RareMovementMusic("Assets/Sounds/Music/walkingrare.mp3", SFX::Type::MUSIC),
 fastMovementMusic("Assets/Sounds/Music/walkingfast.mp3", SFX::Type::MUSIC),
 fasterMovementMusic("Assets/Sounds/Music/walkingfaster.mp3", SFX::Type::MUSIC),
+popSound("Assets/Sounds/SFX/popmonster.mp3", SFX::Type::SOUND),
+inflatingSound("Assets/Sounds/SFX/pumpmonster.mp3", SFX::Type::SOUND),
 harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true)
 {
 }
@@ -47,6 +49,8 @@ void Player::Load() {
 
     std::cout << "player loaded successfully" << '\n';
     animation = std::make_unique<Animation>(&texture, sf::Vector2u(4, 3), 0.25f, size.x, size.y, true);
+
+
 
     MovementMusic.setVolume(30);
     MovementMusic.setLoop(true); 
@@ -310,13 +314,13 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
 
             // Now inflate the enemy
             enemyToScore->Inflate();
-            harpoonSound.play();
+            inflatingSound.play();
 
             // Check if enemy died from inflation
             if (wasAlive && !enemyToScore->isActive()) {
                 std::cout << "Enemy died from inflation!" << std::endl;
-                // Score was already awarded above
-
+                popSound.play();
+               
                 // Detach harpoon after inflation
                 DetachHarpoon();
             }
@@ -694,16 +698,19 @@ void Player::resetDeathAnimation() {
 }
 
 void Player::resetMusic(Reason reason) {
-    stopMovementMusic();
+    // Stop all music tracks completely (not just pause)
+    MovementMusic.stop();
+    RareMovementMusic.stop();
+    fastMovementMusic.stop();
+    fasterMovementMusic.stop();
 
-    isPlayingRareMusic = false;
-    playFastMusic = false;
-    playFasterMusic = false;
-
-    
     switch (reason) {
     case Reason::DEFAULT:
-        // No flags set, default to normal music
+        // Reset to completely default state
+        isPlayingRareMusic = false;
+        playFastMusic = false;
+        playFasterMusic = false;
+
         if (isMoving && shouldPlayMovementMusic) {
             MovementMusic.play();
             std::cout << "Music reset to default normal music" << std::endl;
@@ -711,25 +718,49 @@ void Player::resetMusic(Reason reason) {
         break;
     case Reason::LAST_ENEMY:
         // For last enemy, use fast music (same as THIRTY_SECONDS)
+        isPlayingRareMusic = false;
         playFastMusic = true;
+        playFasterMusic = false;
+
         if (isMoving && shouldPlayMovementMusic) {
             fastMovementMusic.play();
             std::cout << "Music reset to fast music due to LAST_ENEMY" << std::endl;
         }
         break;
     case Reason::THIRTY_SECONDS:
+        isPlayingRareMusic = false;
         playFastMusic = true;
+        playFasterMusic = false;
+
         if (isMoving && shouldPlayMovementMusic) {
             fastMovementMusic.play();
             std::cout << "Music reset to fast music due to THIRTY_SECONDS" << std::endl;
         }
         break;
     case Reason::FIFTEEN_SECONDS:
+        isPlayingRareMusic = false;
+        playFastMusic = false;
         playFasterMusic = true;
+
         if (isMoving && shouldPlayMovementMusic) {
             fasterMovementMusic.play();
             std::cout << "Music reset to faster music due to FIFTEEN_SECONDS" << std::endl;
         }
         break;
     }
+}
+
+void Player::resetMusicForNewLevel() {
+    MovementMusic.stop();
+    RareMovementMusic.stop();
+    fastMovementMusic.stop();
+    fasterMovementMusic.stop();
+
+    
+    isPlayingRareMusic = false;
+    playFastMusic = false;
+    playFasterMusic = false;
+    shouldPlayMovementMusic = true;
+
+    std::cout << "Music state completely reset for new level" << std::endl;
 }

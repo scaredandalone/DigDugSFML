@@ -16,6 +16,10 @@ private:
     sf::Sprite rockSprite;        // For the rock overlay
     sf::Texture rockTexture;      // Rock-specific texture
 
+    SFX rockFall;
+    SFX rockKill;
+    SFX rockHitGround;
+
     float shakeTimer;
     bool isShaking;
 

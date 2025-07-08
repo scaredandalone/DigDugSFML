@@ -2,6 +2,7 @@
 #include "Entity.h"
 #include "Map.h"
 #include "ScoreManager.h"
+#include "SFX.h"
 #include <vector>
 #include <memory>
 
