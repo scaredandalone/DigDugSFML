@@ -142,7 +142,6 @@
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Map.cpp" />
-    <ClCompile Include="Math.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Pooka.cpp" />
     <ClCompile Include="Rock.cpp" />
@@ -159,7 +158,6 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="GameState.h" />
     <ClInclude Include="Map.h" />
-    <ClInclude Include="Math.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Pooka.h" />
     <ClInclude Include="Rock.h" />

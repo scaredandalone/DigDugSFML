@@ -19,7 +19,7 @@ private:
     sf::Texture tileTexture;
     sf::Sprite tileSprite;
     std::map<char, int> charToTileType;
-    std::map<int, int> tileTypeToTexture;  // Maps tile type to texture index
+    std::map<int, int> tileTypeToTexture;  
     std::vector<std::pair<char, sf::Vector2f>> entitySpawns;
     // store rock spawn info
     struct RockSpawnInfo {

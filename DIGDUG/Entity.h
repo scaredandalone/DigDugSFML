@@ -8,7 +8,7 @@
 using EntityID = uint32_t;
 constexpr EntityID INVALID_ENTITY = 0;
 
-enum class EntityType { PLAYER, POOKA, ROCK };
+enum class EntityType { PLAYER, POOKA, FYGAR, ROCK };
 
 class Map;
 

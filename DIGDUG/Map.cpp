@@ -24,13 +24,13 @@ void Map::setupTileMappings() {
     charToTileType['3'] = 3;  // Dirt type 2
     charToTileType['4'] = 4;  // Dirt type 3
     charToTileType['5'] = 5;  // Dirt type 4
-    charToTileType['P'] = 0;  // Enemy spawn
+    charToTileType['P'] = 0;  // pooka
+    charToTileType['F'] = 0;  // fygar
     charToTileType['*'] = 0;  // Player spawn
     charToTileType['R'] = 0;  // Rock will be placed on an empty tile initially
 }
 
 void Map::setupTextureMapping() {
-    // Map tile types to texture indices based on current level
     tileTypeToTexture.clear();
 
     tileTypeToTexture[6] = 0; // for the rock, so the enemy cant pathfind to it
@@ -85,7 +85,7 @@ bool Map::loadFromFile(const std::string& filename) {
             char c = line[col];
             if (charToTileType.find(c) != charToTileType.end()) {
                 tileData[row][col] = charToTileType[c];
-                if (c == 'P' || c == '*') {
+                if (c == 'P' || c == '*' || c == 'F') {
                     sf::Vector2f spawnPos(col * TILE_SIZE + TILE_SIZE / 2.0f, row * TILE_SIZE + TILE_SIZE / 2.0f);
                     entitySpawns.emplace_back(c, spawnPos);
                 }

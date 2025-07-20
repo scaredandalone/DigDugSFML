@@ -321,7 +321,6 @@ sf::Vector2f Pooka::findClosestTunnelToPooka(sf::Vector2f playerPosition) {
         playerTunnels.push_back(playerPosition);
     }
 
-    // Now find the tunnel from the player's area that's closest to the Pooka
     for (const sf::Vector2f& tunnel : playerTunnels) {
         float distance = std::sqrt(
             (tunnel.x - currentPos.x) * (tunnel.x - currentPos.x) +

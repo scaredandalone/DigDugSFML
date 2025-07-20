@@ -103,8 +103,8 @@ void StageManager::printAvailableMaps() const {
 void StageManager::incrementStage()
 {
     
-    if (currentStage == getMapCount()) {
-        currentStage = currentStage - 1;
+    if (currentStage >= getMapCount()) {
+        currentStage = currentStage - 2;
         std::cout << "All stages completed! Restarting from the last stage" << std::endl;
         return;
     }

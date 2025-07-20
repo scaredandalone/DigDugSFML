@@ -62,4 +62,5 @@ public:
     bool getDestroyAnimationComplete() const { return destroyAnimationComplete; }
     bool isMarkedForDeletion() const { return markedForDeletion; }
     void startDestroyAnimation() const { startDestroyAnimation(); }
+
 };

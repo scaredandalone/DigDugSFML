@@ -4,6 +4,7 @@
 #include <cmath>
 #include "Player.h"
 #include "Pooka.h"
+#include "Fygar.h"
 #include "Rock.h"
 #include "GameState.h"
 
@@ -14,7 +15,7 @@ EnemyManager::EnemyManager(Map* map, Player* player, int maxEnemyCount)
 }
 
 EnemyManager::~EnemyManager() {
-    ClearAllEnemies();
+    ClearAllEnemies();  
     ClearAllRocks();
 }
 
@@ -75,8 +76,11 @@ void EnemyManager::SpawnEnemiesFromMap() {
     for (const auto& spawn : spawns) {
         char spawnType = spawn.first;
         sf::Vector2f position = spawn.second;
-        if (spawnType == 'P') {
+        if (spawnType == 'P') {  
             SpawnEnemy(EnemyType::POOKA, position);
+        }
+        if (spawnType == 'F') {  
+            SpawnEnemy(EnemyType::FYGAR, position);
         }
     }
 }
@@ -115,8 +119,13 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
         break;
     }
     case EnemyType::FYGAR: {
-        std::cout << "Fygar spawning not implemented yet!" << '\n';
-        return;
+        auto fygar = std::make_shared<Fygar>(gameMap, player);
+        fygar->Initialise();
+        fygar->Load();
+        fygar->setPosition(position);
+        newEnemy = fygar;
+        std::cout << "Spawned Fygar at position (" << position.x << ", " << position.y << ")" << '\n';
+        break;
     }
     default:
         std::cout << "Unknown enemy type!" << '\n';
@@ -131,22 +140,28 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
 void EnemyManager::RemoveDeadEnemies() {
     size_t initialCount = enemies.size();
 
-    // First, handle scoring for dead enemies
     for (auto& enemy : enemies) {
         if (enemy && !enemy->isActive()) {
-            // Determine kill method based on enemy state
-            KillMethod killMethod = KillMethod::INFLATION; // Default
-
-            // Check if it's a Pooka and determine kill method
+            KillMethod killMethod = KillMethod::ROCK; // Default to rock kill
             auto pooka = std::dynamic_pointer_cast<Pooka>(enemy);
+            auto fygar = std::dynamic_pointer_cast<Fygar>(enemy);
             if (pooka) {
                 if (pooka->getPumpState() >= 4) {
                     killMethod = KillMethod::INFLATION;
                 }
                 else {
-                    killMethod = KillMethod::ROCK; // Likely killed by rock if not fully inflated
+                    killMethod = KillMethod::ROCK;
                 }
             }
+            else if(fygar){
+                    if (fygar->getPumpState() >= 4) {
+                        killMethod = KillMethod::INFLATION;
+                    }
+                    else {
+                        killMethod = KillMethod::ROCK;
+                    }
+            }
+
             // Award points through ScoreManager
             if (player && player->getScoreManager()) {
                 player->getScoreManager()->OnEnemyKilled(enemy, killMethod);
@@ -154,16 +169,18 @@ void EnemyManager::RemoveDeadEnemies() {
         }
     }
 
-    // Then remove dead enemies
+    // Remove dead enemies
     auto removed = std::remove_if(enemies.begin(), enemies.end(),
         [](const std::shared_ptr<Entity>& enemy) {
             return !enemy || !enemy->isActive();
         });
+
     enemies.erase(removed, enemies.end());
     currentEnemyCount = static_cast<int>(enemies.size());
 
     if (enemies.size() != initialCount) {
-        std::cout << "Removed " << (initialCount - enemies.size()) << " dead enemies. Current count: " << currentEnemyCount << std::endl;
+        std::cout << "Removed " << (initialCount - enemies.size())
+            << " dead enemies. Current count: " << currentEnemyCount << std::endl;
     }
 }
 

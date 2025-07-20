@@ -4,6 +4,7 @@
 #include "Player.h"
 #include "Map.h"
 #include "Pooka.h"
+#include "Fygar.h"
 #include "Rock.h"
 #include "EnemyManager.h"
 #include "StageManager.h"
@@ -41,6 +42,7 @@ private:
     SFX highScoreMusic;
     SFX lastEnemySound;
     SFX lowTimeSound;
+    SFX thirtySecondsSound;
 
     // UI Text
     sf::Text startText;
@@ -56,6 +58,7 @@ private:
     float lossDelayTimer;
     float highScoreTimer;
     float lowTimeDelayTimer;
+    float thirtySecondsDelayTimer;
     
     bool lastEnemySoundPlayed = false;
     bool lastEnemySoundPlaying = false;
@@ -64,6 +67,8 @@ private:
     bool lowTimeSoundPlayed;
     bool lowTimeSoundPlaying;
 
+    bool thirtySecondsSoundPlayed; 
+    bool thirtySecondsSoundPlaying;
 
 
     // Constants
@@ -76,6 +81,7 @@ private:
     static constexpr float NOLIVES_DELAY = 6.0f;
     static constexpr float HIGHSCORE_DELAY = 11.0f;
     static constexpr float LOWTIME_DELAY = 2.5f;
+    static constexpr float THIRTYSECONDS_DELAY = 2.5f;
     static constexpr int TILE_SIZE = 16;
 
     // Start scene variables

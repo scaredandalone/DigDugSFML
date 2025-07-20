@@ -13,7 +13,7 @@ private:
     sf::Font font;
     sf::Text scoreText;
     sf::Text levelText;
-    sf::Text timerText;  // New timer text
+    sf::Text timerText;  
 
     sf::RectangleShape background;
 

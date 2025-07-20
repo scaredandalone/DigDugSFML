@@ -92,10 +92,9 @@ void Rock::Update(float deltaTime, sf::Vector2f playerPosition) {
         if (!isShaking) {
             isShaking = true;
             fallTimer = 0.0f;
-            int rockGridX = static_cast<int>(std::round(currentRockCenter.x / TILE_SIZE));
-            int rockGridY = static_cast<int>(std::round(currentRockCenter.y / TILE_SIZE));
-            map->setTileAt(rockGridX * TILE_SIZE + TILE_SIZE / 2.0f, rockGridY * TILE_SIZE + TILE_SIZE / 2.0f, 0);
-            std::cout << "Tile underneath rock removed (shaking started)!" << std::endl;
+            map->setTileAt(currentRockCenter.x, currentRockCenter.y, 0);
+            std::cout << "Tile underneath rock removed (shaking started) at position ("
+                << currentRockCenter.x << ", " << currentRockCenter.y << ")!" << std::endl;
         }
         fallTimer += deltaTime;
         float shakeOffset = std::sin(shakeTimer * SHAKE_SPEED_MULTIPLIER) * SHAKE_AMPLITUDE;
@@ -234,3 +233,4 @@ void Rock::setPosition(sf::Vector2f pos) {
     rockSprite.setPosition(pos);
     hitbox.setPosition(pos);
 }
+

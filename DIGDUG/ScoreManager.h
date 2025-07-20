@@ -17,8 +17,8 @@ private:
     Player* player;
     std::unordered_set<Entity*> scoredEnemies; // Track enemies that have been scored
     int highScore;
-    bool showNewHighScore; // Flag for new high score notification
-    float newHighScoreTimer; // Timer for new high score notification
+    bool showNewHighScore; 
+    float newHighScoreTimer; 
 
 public:
     ScoreManager(Player* playerRef);

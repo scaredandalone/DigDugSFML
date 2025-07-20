@@ -311,7 +311,6 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
                 scoreManager->OnEnemyKilled(enemyToScore, KillMethod::INFLATION);
             }
 
-            // Now inflate the enemy
             enemyToScore->Inflate();
             inflatingSound.play();
 
@@ -320,7 +319,6 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
                 std::cout << "Enemy died from inflation!" << std::endl;
                 popSound.play();
                
-                // Detach harpoon after inflation
                 DetachHarpoon();
             }
 
@@ -342,7 +340,6 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
     }
     spaceKeyPressed = spaceCurrentlyPressed;
 
-    // Handle shooting updates
     if (isShooting) {
         updateShooting(deltaTime);
     }
@@ -601,7 +598,7 @@ void Player::PopEnemyAndScore(std::shared_ptr<Entity> enemy) {
 void Player::createTunnel(sf::Vector2f position) {
     if (map != nullptr && createTunnels) {
         int tileType = map->getTileAt(position.x, position.y);
-        if (tileType == 2 || tileType == 3 || tileType == 4 || tileType == 6) {
+        if (tileType == 2 || tileType == 3 || tileType == 4) {
             map->setTileAt(position.x, position.y, 0);
             if (gameState && gameState->getGameState() != States::START && scoreManager) {
                 // Use ScoreManager instead of direct scoring

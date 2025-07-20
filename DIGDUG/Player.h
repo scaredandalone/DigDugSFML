@@ -10,6 +10,8 @@ class GameState;
 class EnemyManager;
 class ScoreManager;
 
+// this shit is a mess will clean it up later
+
 enum class Reason {
     DEFAULT,
     LAST_ENEMY,
