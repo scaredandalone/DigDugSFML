@@ -24,6 +24,8 @@ private:
     sf::Vector2f ghostTarget;
     sf::Vector2f findClosestTunnelToFygar(sf::Vector2f playerPosition);
 
+
+
     bool harpoonStuck = false;
     sf::SoundBuffer pumpBuffer;
     sf::Sound pumpSound;
