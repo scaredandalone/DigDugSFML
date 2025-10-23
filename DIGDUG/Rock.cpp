@@ -186,7 +186,7 @@ void Rock::checkAndSquashEntities() {
         sf::FloatRect playerBounds = player->getBounds();
         if (rockBounds.findIntersection(playerBounds)) {
             std::cout << "Rock squashed player!" << std::endl;
-            player->setHealth(0);
+            player->triggerDeath(DeathType::SQUASH);
             rockKill.play();
             hasSquashedSomething = true;
         }

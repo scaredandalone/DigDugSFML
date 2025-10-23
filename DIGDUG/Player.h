@@ -19,6 +19,12 @@ enum class Reason {
     FIFTEEN_SECONDS
 };
 
+enum class DeathType {
+    CONTACT,
+    FIRE,
+    SQUASH
+};
+
 class Player : public Entity {
 private:
     Map* map;
@@ -39,11 +45,12 @@ private:
     SFX fasterMovementMusic;
     SFX popSound;
     SFX inflatingSound;
+    SFX deathSound;
 
     bool isPlayingRareMusic;
     bool playFastMusic = false;
     bool playFasterMusic = false;
-    static constexpr float RARE_MUSIC_CHANCE = 0.1f; // 10% chance of rare movement music after normal music ends.
+    static constexpr float RARE_MUSIC_CHANCE = 0.5f; // 10% chance of rare movement music after normal music ends.
 
     // enemy manager
     EnemyManager* enemyManager = nullptr;
@@ -88,6 +95,7 @@ private:
     // death
     bool deathAnimationComplete = false;
     bool deathAnimationStarted = false;
+    DeathType currentDeathType;
 
     void startMovementMusic();
     void stopMovementMusic();
@@ -149,4 +157,5 @@ public:
     bool isPlayingFasterMusic() const { return playFasterMusic; }
     void resetMusic(Reason reason);
     void resetMusicForNewLevel();
+    void triggerDeath(DeathType type);
 };

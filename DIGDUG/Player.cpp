@@ -17,6 +17,7 @@ fastMovementMusic("Assets/Sounds/Music/walkingfast.mp3", SFX::Type::MUSIC),
 fasterMovementMusic("Assets/Sounds/Music/walkingfaster.mp3", SFX::Type::MUSIC),
 popSound("Assets/Sounds/SFX/popmonster.mp3", SFX::Type::SOUND),
 inflatingSound("Assets/Sounds/SFX/pumpmonster.mp3", SFX::Type::SOUND),
+deathSound("Assets/Sounds/SFX/die.mp3", SFX::Type::SOUND),
 harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true)
 {
 }
@@ -478,19 +479,65 @@ void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
     // add win celebrations or animations here later
 }
 
-void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
-{
+void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition) {
+    // Initialize death animation on first frame of LOSS state
     if (!deathAnimationStarted) {
         animation->ResetAnimation();
-        animation->SetLooping(false); // Death animation should not loop
+        animation->SetLooping(false);
         deathAnimationStarted = true;
-        std::cout << "Death animation started" << std::endl;
+        deathAnimationComplete = false;
+
+        // Play appropriate death sound based on death type
+        switch (currentDeathType) {
+        case DeathType::CONTACT:
+            deathSound.play();
+            break;
+        case DeathType::FIRE:
+            deathSound.play();
+            break;
+        case DeathType::SQUASH:
+            deathSound.play();
+            break;
+        }
     }
+
     stopMovementMusic();
 
-    // Always try to update the animation
-    animation->Update(2, deltaTime, sprite);
 
+    int animationRow = 2; // Default to contact death
+    // float animationSpeed = deltaTime * modifier; could be useful if we wanted to alter the death animation speed
+
+    switch (currentDeathType) {
+    case DeathType::CONTACT:
+        animationRow = 2;
+        break;
+    case DeathType::FIRE:
+        animationRow = 2; // Use same as contact, or add fire death row
+        break;
+    case DeathType::SQUASH:
+        animationRow = 3;
+        // sprite.setScale(sf::Vector2f(1.2f, 0.6f)); // could also do 
+        break;
+    }
+
+    animation->Update(animationRow, deltaTime, sprite);
+
+    static float deathAnimationTimer = 0.0f;
+    if (deathAnimationStarted) {
+        deathAnimationTimer += deltaTime;
+
+        float animationDuration = 1.0f;
+        if (currentDeathType == DeathType::SQUASH) {
+            animationDuration = 1.0f; 
+        }
+
+        if (deathAnimationTimer >= animationDuration) {
+            deathAnimationComplete = true;
+            deathAnimationTimer = 0.0f;
+        }
+    }
+
+    // Stop any ongoing actions
     if (isShooting) {
         stopShooting();
     }
@@ -499,6 +546,19 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition)
     }
     isMoving = false;
 }
+
+void Player::triggerDeath(DeathType type) {
+    currentDeathType = type;
+    deathAnimationStarted = false;
+    deathAnimationComplete = false;
+
+    if (gameState) {
+        gameState->setGameState(States::LOSS);
+    }
+
+    std::cout << "Death triggered - Type: " << static_cast<int>(type) << std::endl;
+}
+
 
 void Player::startShooting() {
     harpoonSound.play();
