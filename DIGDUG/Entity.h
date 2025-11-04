@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include "EnemyManager.h"
 #include "Animation.h"
 #include "SFX.h"
 
@@ -60,6 +61,7 @@ public:
     static EntityID CreateEntity() { return ++nextID; }
     static bool IsValid(EntityID entity) { return entity != INVALID_ENTITY; }
     int getScoreAwarded() const { return scoreAwarded; }
+    EntityType getEntityType() {return type;}
  
 
 };

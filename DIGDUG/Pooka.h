@@ -9,6 +9,7 @@ class Pooka : public Entity {
 private:
     Player* player;
     Map* map;
+    EnemyManager* enemyManager;
     int health;
     float speed;
     int status; // 0 = default, 1 = ghost form
@@ -76,7 +77,7 @@ private:
     void regenerateHealth();
 
 public:
-    Pooka(Map* gameMap, Player* player);
+    Pooka(Map* gameMap, Player* player, EnemyManager* em);
     void Initialise() override;
     void Load() override;
     void Update(float deltaTime, sf::Vector2f playerPosition) override;

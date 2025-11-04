@@ -36,8 +36,6 @@ private:
 
     // Audio
     SFX victory;
-    SFX lossMusic;
-    SFX noLivesMusic;
     SFX startMusic;
     SFX highScoreMusic;
     SFX lastEnemySound;
@@ -78,7 +76,7 @@ private:
     static constexpr float LASTENEMY_DURATION = 2.2f;
 
     static constexpr float LOSS_DELAY = 3.0f;
-    static constexpr float NOLIVES_DELAY = 6.0f;
+    static constexpr float NOLIVES_DELAY = 8.0f;
     static constexpr float HIGHSCORE_DELAY = 11.0f;
     static constexpr float LOWTIME_DELAY = 2.5f;
     static constexpr float THIRTYSECONDS_DELAY = 2.5f;

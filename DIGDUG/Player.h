@@ -46,7 +46,15 @@ private:
     SFX popSound;
     SFX inflatingSound;
     SFX deathSound;
+    SFX noLivesMusic;
 
+    float deathFlashTimer;
+    static constexpr float DEATH_FLASH_DURATION = 1.2f;
+    bool animationInitialized;
+    float deathAnimationTimer;
+
+    bool noLivesMusicPlayed;
+    bool deathSoundFinished;
     bool isPlayingRareMusic;
     bool playFastMusic = false;
     bool playFasterMusic = false;

@@ -26,15 +26,20 @@ void EnemyManager::Initialise() {
 void EnemyManager::Update(float deltaTime, sf::Vector2f playerPosition) {
     States currentState = gameState->getGameState();
 
+    // Always update rocks except during START
+    if (currentState != States::START) {
+        for (auto& rock : rocks) {
+            if (rock) {
+                rock->Update(deltaTime, playerPosition);
+            }
+        }
+    }
+
+    // Only update enemies + collisions during GAME
     if (currentState == States::GAME) {
         for (auto& enemy : enemies) {
             if (enemy && enemy->isActive()) {
                 enemy->Update(deltaTime, playerPosition);
-            }
-        }
-        for (auto& rock : rocks) {
-            if (rock) {
-                rock->Update(deltaTime, playerPosition);
             }
         }
 
@@ -110,7 +115,8 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
     std::shared_ptr<Entity> newEnemy = nullptr;
     switch (type) {
     case EnemyType::POOKA: {
-        auto pooka = std::make_shared<Pooka>(gameMap, player);
+        // CHANGE: Pass 'this' (EnemyManager pointer) to Pooka
+        auto pooka = std::make_shared<Pooka>(gameMap, player, this);
         pooka->Initialise();
         pooka->Load();
         pooka->setPosition(position);
@@ -119,6 +125,7 @@ void EnemyManager::SpawnEnemy(EnemyType type, sf::Vector2f position) {
         break;
     }
     case EnemyType::FYGAR: {
+        // OPTIONAL: Also pass to Fygar for consistency (even though Fygar doesn't need pack behavior)
         auto fygar = std::make_shared<Fygar>(gameMap, player);
         fygar->Initialise();
         fygar->Load();
@@ -196,6 +203,7 @@ void EnemyManager::RemoveDestroyedRocks() {
 
     if (rocks.size() != initialCount) {
         std::cout << "Removed " << (initialCount - rocks.size()) << " destroyed rocks. Current count: " << rocks.size() << std::endl;
+        
     }
 }
 
@@ -261,6 +269,18 @@ void EnemyManager::setSpeedMultipler(float multiple)
     for (auto& enemy : enemies) {
         if (enemy && enemy->isActive()) {
             enemy->multiplySpeed(multiple);
+        }
+    }
+}
+
+bool EnemyManager::areRocksFalling()
+{
+    for (auto& rock : rocks) {
+        if (rock && rock->getIsActive()) {
+            return true;
+        }
+        else {
+            return false;
         }
     }
 }

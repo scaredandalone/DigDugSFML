@@ -53,4 +53,5 @@ public:
     int GetEnemyCount() const { return currentEnemyCount; }
     void SetGameState(GameState* gs) { gameState = gs; }
     void setSpeedMultipler(float multiple);
+    bool areRocksFalling();
 };

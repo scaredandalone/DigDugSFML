@@ -47,6 +47,7 @@ private:
     const float FIRE_BREATH_MAX_LENGTH = TILE_SIZE * 3; // 3 tiles long
     sf::RectangleShape fireHitbox;
     SFX fireBreathSound;
+    bool hasHitPlayerWithFire = false;
 
 
     // Shooting helper methods

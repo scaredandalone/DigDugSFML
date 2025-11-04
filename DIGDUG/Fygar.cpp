@@ -37,6 +37,8 @@ void Fygar::Load() {
         std::cout << "failed to load pump sound" << '\n';
     }
     pumpSound.setBuffer(pumpBuffer);
+    fireBreathSound.setVolume(50);  
+    fireBreathSound.setLoop(false);
 
     std::cout << "fygar loaded successfully" << '\n';
     animation = std::make_unique<Animation>(&texture, sf::Vector2u(2, 2), 0.25f, size.x, size.y, true);
@@ -49,12 +51,31 @@ void Fygar::Update(float deltaTime, sf::Vector2f playerPosition) {
     updatePumpCooldown(deltaTime);
     updateFireBreathState(deltaTime);
 
-    // Handle fire breath preparation and shooting (even when stuck/harpooned)
     if (preparingShot) {
-        prepareTimer += deltaTime;
-        isMoving = false; // Stop moving while preparing
+        // Safety check - if fire breath already started, stop preparing
+        if (fireBreathActive) {
+            preparingShot = false;
+            prepareTimer = 0.0f;
+            sprite.setColor(sf::Color::White);
+            return;
+        }
 
-        // Keep the direction locked once charging starts
+        prepareTimer += deltaTime;
+        isMoving = false;
+
+        // Check if we should fire
+        if (prepareTimer >= PREPARE_DURATION) {
+            // Double safety check before firing
+            if (!fireBreathActive) {
+                breatheFire(playerPosition);
+            }
+            preparingShot = false;
+            prepareTimer = 0.0f;
+            sprite.setColor(sf::Color::White);
+            shootCooldown = SHOOT_COOLDOWN;
+            return;
+        }
+
         // Visual feedback - make sprite flash/highlight
         if (static_cast<int>(prepareTimer * 4) % 2 == 0) {
             sprite.setColor(sf::Color(255, 200, 200)); // Reddish tint
@@ -63,18 +84,11 @@ void Fygar::Update(float deltaTime, sf::Vector2f playerPosition) {
             sprite.setColor(sf::Color::White);
         }
 
-        if (prepareTimer >= PREPARE_DURATION) {
-            breatheFire(playerPosition);
-            preparingShot = false;
-            prepareTimer = 0.0f;
-            sprite.setColor(sf::Color::White);
-            shootCooldown = SHOOT_COOLDOWN;
-        }
         return; // Don't move while preparing
     }
 
-    if (preparingShot || fireBreathActive) {
-        // While charging or breathing fire, freeze direction & position
+    if (fireBreathActive) {
+        // While breathing fire, freeze direction & position
         // Make sure the sprite stays facing the locked fire direction
         sprite.setScale(sf::Vector2f(fireBreathDirection, 1.0f));
         return;
@@ -103,6 +117,7 @@ void Fygar::Update(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 }
+
 
 bool Fygar::shouldPrepareShot(sf::Vector2f playerPosition) {
     if (status == 1) return false; // cant shoot while in ghost mode
@@ -143,13 +158,29 @@ bool Fygar::hasHorizontalTunnelPath(sf::Vector2f from, sf::Vector2f to) {
     return true;
 }
 
+
 void Fygar::breatheFire(sf::Vector2f playerPosition) {
+    if (fireBreathActive || status == 1) {
+        std::cout << "breatheFire() blocked - already active" << std::endl;
+        return; // Don't start a new fire breath if one is active
+    }
+
+    std::cout << "breatheFire() CALLED" << std::endl;
+
+    // Initialize fire breath
     fireBreathActive = true;
     fireBreathTimer = 0.0f;
+
+    // Play sound once (restart it to be safe)
+    if (fireBreathSound.isPlaying()) {
+        fireBreathSound.stop();   
+    }
     fireBreathSound.play();
-    // Direction is already locked when charging started, so we just use it
-    std::cout << "Fygar breathes fire in direction: " << fireBreathDirection << std::endl;
+
+    std::cout << "Fygar at (" << sprite.getPosition().x << ", " << sprite.getPosition().y
+        << ") breathes fire in direction: " << fireBreathDirection << std::endl;
 }
+
 
 void Fygar::updateFireBreathState(float deltaTime) {
     if (shootCooldown > 0.0f) {
@@ -175,6 +206,13 @@ void Fygar::updateFireBreathState(float deltaTime) {
     else {
         // Fire breath finished
         fireBreathActive = false;
+        hasHitPlayerWithFire = false; // Reset for next fire breath
+
+        // Ensure sound is stopped when the effect ends
+        if (fireBreathSound.isPlaying()) {
+            fireBreathSound.stop();
+        }
+
         std::cout << "Fire breath dissipated" << std::endl;
         return;
     }
@@ -208,9 +246,9 @@ void Fygar::updateFireBreathState(float deltaTime) {
 
     if (fireBreathDirection < 0) {
         // Facing left — flip the fire horizontally
-        fireBreathSprite.setOrigin(sf::Vector2f(0.f, 8.f));     // anchor left edge
-        fireBreathSprite.setScale(sf::Vector2f(-1.f, 1.f));     // flip horizontally
-        fireBreathPos.x -= 10.0f;                               // slight offset left
+        fireBreathSprite.setOrigin(sf::Vector2f(0.f, 8.f));
+        fireBreathSprite.setScale(sf::Vector2f(-1.f, 1.f));
+        fireBreathPos.x -= 10.0f;
     }
     else {
         // Facing right — normal orientation
@@ -222,26 +260,23 @@ void Fygar::updateFireBreathState(float deltaTime) {
     fireBreathSprite.setPosition(fireBreathPos);
 
     // --- Fire hitbox setup (visual + collision) ---
-    float visibleWidth = static_cast<float>(totalSpriteWidth); // matches the drawn fire width
+    float visibleWidth = static_cast<float>(totalSpriteWidth);
     fireHitbox.setSize(sf::Vector2f(visibleWidth, 16.f));
     fireHitbox.setFillColor(sf::Color::Transparent);
     fireHitbox.setOutlineColor(sf::Color::Red);
     fireHitbox.setOutlineThickness(1.f);
 
     if (fireBreathDirection < 0) {
-        // Facing left — anchor right edge
         fireHitbox.setOrigin({ fireHitbox.getSize().x, 8.f });
         fireHitbox.setPosition({ fireBreathPos.x, fireBreathPos.y });
     }
     else {
-        // Facing right — anchor left edge
         fireHitbox.setOrigin({ 0.f, 8.f });
         fireHitbox.setPosition({ fireBreathPos.x, fireBreathPos.y });
     }
 
-
-    // --- Collision check with player ---
-    if (player != nullptr) {
+    // --- Collision check with player (ONLY ONCE) ---
+    if (player != nullptr && !hasHitPlayerWithFire) {
         sf::Vector2f playerPos = player->getPosition();
         float verticalDiff = abs(playerPos.y - fygarPos.y);
 
@@ -253,6 +288,8 @@ void Fygar::updateFireBreathState(float deltaTime) {
 
             if (inDirection && distanceToPlayer <= currentLength) {
                 player->setHealth(0);
+                hasHitPlayerWithFire = true; // Mark as hit so sound only plays once
+                std::cout << "Player hit by fire breath!" << std::endl;
             }
         }
     }
@@ -438,10 +475,17 @@ bool Fygar::tryMoveVertically(sf::Vector2f direction, sf::Vector2f& target) {
 }
 
 sf::Vector2f Fygar::chooseBestTarget(sf::Vector2f horizontal, sf::Vector2f vertical, sf::Vector2f playerPos) {
-    float horizontalDist = calculateDistance(horizontal, playerPos);
-    float verticalDist = calculateDistance(vertical, playerPos);
+    // fygar will ALWAYS prefer to move to a position on the same row as the player (so it can use its fire breath)
+    sf::Vector2f currentPos = sprite.getPosition();
+    sf::Vector2f playerPosition = playerPos;
 
-    return (horizontalDist < verticalDist) ? horizontal : vertical;
+    float verticalDiff = abs(currentPos.y - playerPosition.y);
+
+    if (verticalDiff > TILE_SIZE / 2) {
+        return vertical;
+    }
+
+    return horizontal;
 }
 
 float Fygar::calculateDistance(sf::Vector2f from, sf::Vector2f to) {

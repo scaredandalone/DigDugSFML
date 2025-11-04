@@ -227,6 +227,15 @@ bool Rock::isSolid(float x, float y) {
     return tileType > 0;
 }
 
+bool Rock::getIsActive()
+{
+    // Rock is active if it's:
+    // 1. Shaking (about to fall)
+    // 2. Falling
+    // 3. Playing death animation (not alive but animation not complete)
+    return isShaking || isFalling || (destroyAnimationStarted && !destroyAnimationComplete);
+}
+
 void Rock::setPosition(sf::Vector2f pos) {
     Entity::setPosition(pos);
     tileSprite.setPosition(pos);

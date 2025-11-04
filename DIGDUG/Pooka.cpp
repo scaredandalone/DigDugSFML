@@ -5,8 +5,9 @@
 #include "Pooka.h"
 #include "Player.h"
 
-Pooka::Pooka(Map* gameMap, Player* player) : Entity(EntityType::POOKA, true, sf::Vector2i(16, 16), 300),
-health(4), speed(25.0f), status(0), sprite(texture), pumpSound(pumpBuffer), map(gameMap), player(player) {
+Pooka::Pooka(Map* gameMap, Player* player, EnemyManager* em): Entity(EntityType::POOKA, true, sf::Vector2i(16, 16), 300),
+    health(4), speed(25.0f), status(0), sprite(texture),
+    pumpSound(pumpBuffer), map(gameMap), player(player), enemyManager(em) {
 }
 
 void Pooka::Initialise() {
@@ -222,9 +223,54 @@ bool Pooka::tryMoveVertically(sf::Vector2f direction, sf::Vector2f& target) {
 }
 
 sf::Vector2f Pooka::chooseBestTarget(sf::Vector2f horizontal, sf::Vector2f vertical, sf::Vector2f playerPos) {
+    if (enemyManager != nullptr) {
+        const auto& enemies = enemyManager->GetEnemies();
+        bool horizontalBlocked = false;
+        bool verticalBlocked = false;
+
+        for (const auto& enemy : enemies) {
+            if (enemy.get() == this || enemy->getEntityType() != EntityType::POOKA || !enemy->isActive()) continue;
+
+            sf::Vector2f enemyPos = enemy->getPosition();
+            if (calculateDistance(enemyPos, horizontal) < TILE_SIZE) horizontalBlocked = true;
+            if (calculateDistance(enemyPos, vertical) < TILE_SIZE) verticalBlocked = true;
+        }
+
+        if (horizontalBlocked && !verticalBlocked) return vertical;
+        if (verticalBlocked && !horizontalBlocked) return horizontal;
+        if (horizontalBlocked && verticalBlocked) {
+            // Both blocked - try to spread out by going away from nearest Pooka
+            return (rand() % 2 == 0) ? horizontal : vertical;
+        }
+
+        // Second check: Balance pack distribution around player
+        int pookasAbove = 0, pookasBelow = 0, pookasLeft = 0, pookasRight = 0;
+        sf::Vector2f myPos = sprite.getPosition();
+
+        for (const auto& enemy : enemies) {
+            if (enemy.get() == this || enemy->getEntityType() != EntityType::POOKA || !enemy->isActive()) continue;
+
+            sf::Vector2f enemyPos = enemy->getPosition();
+            if (enemyPos.y < playerPos.y - TILE_SIZE) pookasAbove++;
+            if (enemyPos.y > playerPos.y + TILE_SIZE) pookasBelow++;
+            if (enemyPos.x < playerPos.x - TILE_SIZE) pookasLeft++;
+            if (enemyPos.x > playerPos.x + TILE_SIZE) pookasRight++;
+        }
+
+        // Move to balance pack
+        if ((myPos.y < playerPos.y && pookasBelow < pookasAbove) ||
+            (myPos.y > playerPos.y && pookasAbove < pookasBelow)) {
+            return vertical;
+        }
+        if ((myPos.x < playerPos.x && pookasRight < pookasLeft) ||
+            (myPos.x > playerPos.x && pookasLeft < pookasRight)) {
+            return horizontal;
+        }
+    }
+
+    // Default: move toward player
     float horizontalDist = calculateDistance(horizontal, playerPos);
     float verticalDist = calculateDistance(vertical, playerPos);
-
     return (horizontalDist < verticalDist) ? horizontal : vertical;
 }
 
@@ -350,9 +396,20 @@ void Pooka::updateAnimationAndHitbox(float deltaTime) {
 
 void Pooka::updateNormalHitbox() {
     hitbox.setSize(sf::Vector2f(10.f, 10.f));
-    sf::Vector2f spriteCenter = sprite.getPosition() + sf::Vector2f(size.x / 2.f, size.y / 2.f);
     hitbox.setOrigin(hitbox.getSize() / 2.f);
-    hitbox.setPosition(spriteCenter);
+
+    sf::Vector2f pookaPos = sprite.getPosition();
+    sf::FloatRect bounds = sprite.getGlobalBounds();
+
+    // Center the hitbox horizontally depending on facing
+    if (sprite.getScale().x < 0) {
+        // Facing left — position at mirrored side
+        hitbox.setPosition({ pookaPos.x - (bounds.size.x / 4.0f), pookaPos.y });
+    }
+    else {
+        // Facing right — position normally
+        hitbox.setPosition({ pookaPos.x + (bounds.size.x / 4.0f), pookaPos.y });
+    }
 }
 
 sf::Vector2f Pooka::findClosestTunnelToPooka(sf::Vector2f playerPosition) {
@@ -464,7 +521,7 @@ void Pooka::updateInflationSprite() {
     hitbox.setSize(sf::Vector2f(size.x - 6, size.y - 6));
     hitbox.setOrigin(hitbox.getSize() / 2.0f);
 
-    std::cout << "Fygar sprite updated for pump state: " << pumpState << std::endl;
+    std::cout << "Pooka sprite updated for pump state: " << pumpState << std::endl;
 }
 
 bool Pooka::isHarpoonAttached() const {

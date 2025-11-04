@@ -23,8 +23,6 @@ Game::Game()
     , initialPos(-16, 16)
     , previousState(States::START)
     , startMusic("Assets/Sounds/Music/start_music.mp3", SFX::Type::MUSIC)
-    , lossMusic("Assets/Sounds/Music/loss.mp3", SFX::Type::MUSIC)
-    , noLivesMusic("Assets/Sounds/Music/nolivesleft.mp3", SFX::Type::MUSIC)
     , victory("Assets/Sounds/Music/success.mp3", SFX::Type::MUSIC)
     , highScoreMusic("Assets/Sounds/Music/highscore.mp3", SFX::Type::MUSIC)
     , lastEnemySound("Assets/Sounds/Music/lastenemy.mp3", SFX::Type::SOUND)
@@ -35,7 +33,7 @@ Game::Game()
     , winText(font)
     , highScoreText(font)
     , newHighScoreText(font)
-    , levelTimeLimit(40.0f)
+    , levelTimeLimit(90.0f)
     , timerEnabled(true)
     , currentTimerPhase(TimerPhase::NORMAL)
     , lastEnemySoundPlayed(false)
@@ -149,15 +147,11 @@ void Game::initialiseAudio()
 {
     // set loops for music
     startMusic.setLoop(false);
-    lossMusic.setLoop(false);
-    noLivesMusic.setLoop(false);
     highScoreMusic.setLoop(false);
 
     // set volume for all SFX
     victory.setVolume(30);
     startMusic.setVolume(35);
-    lossMusic.setVolume(35);
-    noLivesMusic.setVolume(35);
     highScoreMusic.setVolume(35);
     lastEnemySound.setVolume(15);
     lowTimeSound.setVolume(15);
@@ -522,7 +516,7 @@ void Game::updateGameState(float deltaTime)
         }
     }
 
-    if (enemyCount == 0) {
+    if (enemyCount == 0 && enemyManager->areRocksFalling() == 0){
         gameState->setGameState(States::WIN);
         lastEnemySoundPlaying = false;
         lastEnemySound.stop();
@@ -572,11 +566,9 @@ void Game::updateLossState(float deltaTime)
         }
         player->setLives(player->getLives() - 1);
         if (player->getLives() > 0) {
-            lossMusic.play();
             std::cout << "Player died! Lives remaining: " << player->getLives() << std::endl;
         }
         else {
-            noLivesMusic.play();
             std::cout << "Player died! No lives remaining. Game Over!" << std::endl;
         }
         lossSceneInitialised = true;
@@ -612,8 +604,6 @@ void Game::updateLossState(float deltaTime)
             restartCurrentStage();
             gameState->setGameState(States::START);
         }
-        lossMusic.stop();
-        noLivesMusic.stop();
         lossSceneInitialised = false;
     }
 }
@@ -645,8 +635,6 @@ void Game::initialiseHighScoreScene()
     highScoreSceneInitialised = true;
 
     // Stop any other music and play high score music
-    lossMusic.stop();
-    noLivesMusic.stop();
     highScoreMusic.play();
 
     // Ensure the score manager is showing the new high score
@@ -766,7 +754,5 @@ void Game::render()
 void Game::cleanup()
 {
     startMusic.stop();
-    lossMusic.stop();
-    noLivesMusic.stop();
     highScoreMusic.stop();
 }

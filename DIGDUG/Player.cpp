@@ -18,7 +18,9 @@ fasterMovementMusic("Assets/Sounds/Music/walkingfaster.mp3", SFX::Type::MUSIC),
 popSound("Assets/Sounds/SFX/popmonster.mp3", SFX::Type::SOUND),
 inflatingSound("Assets/Sounds/SFX/pumpmonster.mp3", SFX::Type::SOUND),
 deathSound("Assets/Sounds/SFX/die.mp3", SFX::Type::SOUND),
-harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true)
+noLivesMusic("Assets/Sounds/Music/nolivesleft.mp3", SFX::Type::MUSIC),
+harpoonTimer(0), isPlayingRareMusic(false), shouldPlayMovementMusic(true),
+noLivesMusicPlayed(false), deathSoundFinished(false), deathFlashTimer(0.0f)
 {
 }
 void Player::Initialise() {
@@ -53,17 +55,17 @@ void Player::Load() {
 
 
     MovementMusic.setVolume(25);
-    MovementMusic.setLoop(true); 
+    MovementMusic.setLoop(true);
     harpoonSound.setVolume(10);
 
     RareMovementMusic.setVolume(25);
-    RareMovementMusic.setLoop(true); 
+    RareMovementMusic.setLoop(true);
 
     fastMovementMusic.setVolume(60);
-    fastMovementMusic.setLoop(true); 
+    fastMovementMusic.setLoop(true);
 
     fasterMovementMusic.setVolume(60);
-    fasterMovementMusic.setLoop(true); 
+    fasterMovementMusic.setLoop(true);
 
 }
 
@@ -86,7 +88,7 @@ void Player::startMovementMusic() {
     // Check if any music is already playing to avoid interrupting a looping track
     if (MovementMusic.isPlaying() || RareMovementMusic.isPlaying() ||
         fastMovementMusic.isPlaying() || fasterMovementMusic.isPlaying()) {
-        return; 
+        return;
     }
 
     if (playFasterMusic) {
@@ -134,14 +136,14 @@ void Player::updateMovementMusic(float deltaTime) {
 
     if (playFasterMusic) {
         if (!fasterMovementMusic.isPlaying()) {
-            stopMovementMusic(); 
+            stopMovementMusic();
             fasterMovementMusic.play();
             std::cout << "Playing faster movement music (timer-based)" << std::endl;
         }
     }
     else if (playFastMusic) {
         if (!fastMovementMusic.isPlaying()) {
-            stopMovementMusic(); 
+            stopMovementMusic();
             fastMovementMusic.play();
             std::cout << "Playing fast movement music (timer-based)" << std::endl;
         }
@@ -151,7 +153,7 @@ void Player::updateMovementMusic(float deltaTime) {
             if (!RareMovementMusic.isPlaying()) {
                 // Rare music finished, switch back to normal
                 isPlayingRareMusic = false;
-                stopMovementMusic(); 
+                stopMovementMusic();
                 MovementMusic.play();
                 std::cout << "Rare music finished, switching back to normal music" << std::endl;
             }
@@ -167,7 +169,7 @@ void Player::updateMovementMusic(float deltaTime) {
                     std::cout << "Normal music finished, switching to rare music" << std::endl;
                 }
                 else {
-                    stopMovementMusic(); 
+                    stopMovementMusic();
                     MovementMusic.play();
                     std::cout << "Normal music finished, looping normal music" << std::endl;
                 }
@@ -219,6 +221,15 @@ void Player::updateStartState(float deltaTime, sf::Vector2f playerPosition) {
         isPlayingRareMusic = false;
         std::cout << "Music reset in START state" << std::endl;
     }
+
+    // Reset no lives music flags when entering START state
+    if (noLivesMusicPlayed) {
+        noLivesMusicPlayed = false;
+        deathSoundFinished = false;
+        noLivesMusic.stop();
+        std::cout << "No lives music flags reset in START state" << std::endl;
+    }
+
     if (deathAnimationStarted) {
         deathAnimationStarted = false;
         animation->ResetAnimation();
@@ -319,20 +330,20 @@ void Player::updateGameState(float deltaTime, sf::Vector2f playerPosition) {
             if (wasAlive && !enemyToScore->isActive()) {
                 std::cout << "Enemy died from inflation!" << std::endl;
                 popSound.play();
-               
+
                 DetachHarpoon();
             }
 
 
             animation->Update(1, deltaTime, sprite);
-           // animation->currentImage.x++;
-           //if (animation->currentImage.x >= animation->imageCount.x) {
-           //    animation->currentImage.x = 0;
-           //}
-           //animation->currentImage.y = 1;
-           //animation->uvRect.position = sf::Vector2i(animation->currentImage.x * animation->uvRect.size.x,
-           //    animation->currentImage.y * animation->uvRect.size.y);
-           //sprite.setTextureRect(animation->uvRect);
+            // animation->currentImage.x++;
+            //if (animation->currentImage.x >= animation->imageCount.x) {
+            //    animation->currentImage.x = 0;
+            //}
+            //animation->currentImage.y = 1;
+            //animation->uvRect.position = sf::Vector2i(animation->currentImage.x * animation->uvRect.size.x,
+            //    animation->currentImage.y * animation->uvRect.size.y);
+            //sprite.setTextureRect(animation->uvRect);
         }
         if (!isShooting && !isMoving && !isImmobilized) {
             harpoonSound.play();
@@ -480,13 +491,19 @@ void Player::updateWinState(float deltaTime, sf::Vector2f playerPosition) {
 }
 
 void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition) {
-    // Initialize death animation on first frame of LOSS state
+    // Initialize death sequence on first frame of LOSS state
     if (!deathAnimationStarted) {
-        animation->ResetAnimation();
-        animation->SetLooping(false);
         deathAnimationStarted = true;
         deathAnimationComplete = false;
+        deathSoundFinished = false;
+        deathFlashTimer = 0.0f;
+        deathAnimationTimer = 0.0f;  // Add this as a member variable
+        animationInitialized = false; // Add this as a member variable
 
+        // Flash the sprite red
+        sprite.setColor(sf::Color::Red);
+
+        std::cout << "Death sequence started - flashing red" << std::endl;
         // Play appropriate death sound based on death type
         switch (currentDeathType) {
         case DeathType::CONTACT:
@@ -501,12 +518,32 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
+    // Check if death sound has finished playing
+    if (!deathSoundFinished && !deathSound.isPlaying()) {
+        deathSoundFinished = true;
+        std::cout << "Death sound finished playing" << std::endl;
+    }
+
     stopMovementMusic();
 
+    // Handle the red flash delay before starting death animation
+    if (deathFlashTimer < DEATH_FLASH_DURATION) {
+        deathFlashTimer += deltaTime;
+        // Keep sprite red during this period
+        sprite.setColor(sf::Color::Red);
+        return; // Exit early, don't run animation yet
+    }
+
+    // Flash duration complete, reset animation if not done yet
+    if (!deathAnimationComplete && !animationInitialized) {
+        animation->ResetAnimation();
+        animation->SetLooping(false);
+        sprite.setColor(sf::Color(255, 255, 255, 255)); // Reset to normal color
+        animationInitialized = true;
+        std::cout << "Starting death animation after flash" << std::endl;
+    }
 
     int animationRow = 2; // Default to contact death
-    // float animationSpeed = deltaTime * modifier; could be useful if we wanted to alter the death animation speed
-
     switch (currentDeathType) {
     case DeathType::CONTACT:
         animationRow = 2;
@@ -516,24 +553,27 @@ void Player::updateLossState(float deltaTime, sf::Vector2f playerPosition) {
         break;
     case DeathType::SQUASH:
         animationRow = 3;
-        // sprite.setScale(sf::Vector2f(1.2f, 0.6f)); // could also do 
         break;
     }
 
     animation->Update(animationRow, deltaTime, sprite);
 
-    static float deathAnimationTimer = 0.0f;
-    if (deathAnimationStarted) {
+    if (deathFlashTimer >= DEATH_FLASH_DURATION) {
         deathAnimationTimer += deltaTime;
-
         float animationDuration = 1.0f;
         if (currentDeathType == DeathType::SQUASH) {
-            animationDuration = 1.0f; 
+            animationDuration = 1.0f;
         }
 
         if (deathAnimationTimer >= animationDuration) {
             deathAnimationComplete = true;
-            deathAnimationTimer = 0.0f;
+
+            // Play no lives music only once after death sound is finished
+            if (lives <= 0 && !noLivesMusicPlayed && deathSoundFinished) {
+                noLivesMusic.play();
+                noLivesMusicPlayed = true;
+                std::cout << "Playing no lives music" << std::endl;
+            }
         }
     }
 
@@ -551,6 +591,8 @@ void Player::triggerDeath(DeathType type) {
     currentDeathType = type;
     deathAnimationStarted = false;
     deathAnimationComplete = false;
+    deathSoundFinished = false;
+    noLivesMusicPlayed = false;
 
     if (gameState) {
         gameState->setGameState(States::LOSS);
@@ -751,6 +793,8 @@ void Player::DetachHarpoon() {
 
 void Player::resetDeathAnimation() {
     deathAnimationStarted = false;
+    deathSoundFinished = false;
+    noLivesMusicPlayed = false;
     std::cout << "Death animation reset" << std::endl;
 }
 
@@ -813,7 +857,7 @@ void Player::resetMusicForNewLevel() {
     fastMovementMusic.stop();
     fasterMovementMusic.stop();
 
-    
+
     isPlayingRareMusic = false;
     playFastMusic = false;
     playFasterMusic = false;
